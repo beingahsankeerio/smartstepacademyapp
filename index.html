@@ -82,6 +82,7 @@
   <a href="#admission" data-v="admission">➕ New Admission</a>
   <a href="#students" data-v="students">👨‍🎓 Students</a>
   <a href="#attendance" data-v="attendance">✅ Attendance</a>
+  <a href="#staff" data-v="staff">👩‍🏫 Staff</a>
   <a href="#fees" data-v="fees">💰 Fees</a>
   <a href="#expenses" data-v="expenses">🧾 Expenses</a>
   <a href="#reports" data-v="reports">📊 Reports</a>
@@ -95,8 +96,8 @@
 <script>
 // ---------- state ----------
 const S = {
-  db:null, dl:null, ready:{students:false,fees:false,settings:false,expenses:false}, offline:false, error:null,
-  students:[], fees:[], expenses:[], expMonth: thisMonth(), settings:{academyName:"Smart Step Academy", currency:"Rs.", classes:["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"], phone:"", address:""},
+  db:null, dl:null, ready:{students:false,fees:false,settings:false,expenses:false,staff:false}, offline:false, error:null,
+  students:[], fees:[], expenses:[], staff:[], expMonth: thisMonth(), staffMonth: thisMonth(), attMode:"students", sattDate: today(), settings:{academyName:"Smart Step Academy", currency:"Rs.", classes:["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"], phone:"", address:""},
   attDate: today(), attClass:"", attDoc:null, attUnsub:null, attDraft:null,
   feeMonth: thisMonth(), feeClass:"", stuSearch:"", stuClass:"", stuStatus:"active", editId:null,
   repMonth: thisMonth(), repClass:"", repData:null,
@@ -159,7 +160,7 @@ async function save(fn, okMsg){
 }
 
 // ---------- routing ----------
-function view(){const v=(location.hash||"#home").slice(1);return ["home","admission","students","attendance","fees","expenses","reports","backup","setup"].includes(v)?v:"home";}
+function view(){const v=(location.hash||"#home").slice(1);return ["home","admission","students","attendance","staff","fees","expenses","reports","backup","setup"].includes(v)?v:"home";}
 window.addEventListener("hashchange",render);
 function go(v){location.hash=v;}
 
@@ -181,6 +182,7 @@ function render(){
   if(S.error) top=`<div class="banner bad">${esc(S.error)}</div>`;
   else if(S.offline) top=`<div class="banner">Can't reach your saved data right now — check your internet. Showing what's loaded so far.</div>`;
   if(v!=="attendance" && S.attUnsub){S.attUnsub();S.attUnsub=null;S.attDoc=null;S.attKey=null;}
+  if(v!=="attendance" && S.sattUnsub){S.sattUnsub();S.sattUnsub=null;S.sattDoc=null;S.sattKey=null;S.sattDraft=null;S.sattTimes=null;S.sattDirty=false;}
   $("app").innerHTML=top+VIEWS[v]();
   if(VIEWS[v+"_after"])VIEWS[v+"_after"]();
 }
@@ -206,7 +208,8 @@ VIEWS.home=()=>{
   </div>
   <div class="card"><h3>Quick actions</h3>
     <div class="row">
-      <button onclick="go('attendance')">✅ Take today's attendance</button>
+      <button onclick="S.attMode='students';go('attendance')">✅ Student attendance</button>
+      <button onclick="S.attMode='staff';go('attendance')">👩‍🏫 Teacher attendance</button>
       <button onclick="go('admission')">➕ New admission</button>
       <button onclick="go('fees')">💰 Collect fee</button>
       <button onclick="go('expenses')">🧾 Add expense</button>
@@ -344,14 +347,18 @@ function deleteStudent(id){
 }
 
 // ----- attendance -----
+function attTabs(){return `<div class="row" style="margin-bottom:14px"><div class="att shrink">
+  <button class="${S.attMode!=="staff"?"P on":""}" onclick="S.attMode='students';render()">👨‍🎓 Students</button>
+  <button class="${S.attMode==="staff"?"P on":""}" onclick="S.attMode='staff';render()">👩‍🏫 Teachers &amp; Staff</button></div></div>`;}
 VIEWS.attendance=()=>{
+  if(S.attMode==="staff") return `<div class="card"><h2>✅ Attendance</h2>${attTabs()}${staffAttendanceView()}</div>`;
   if(!S.attClass && S.settings.classes.length) S.attClass=S.settings.classes[0];
   if(!S.attDraft&&!S.attLoading) ensureDraft();
   const list=sortStu(byClass(active(),S.attClass));
   const marks=S.attDraft||{};
   const counts={P:0,A:0,L:0}; list.forEach(s=>{if(marks[s.id])counts[marks[s.id]]++;});
   const savedHere=S.attDoc&&S.attDoc.classes&&S.attDoc.classes[S.attClass];
-  return `<div class="card"><h2>✅ Attendance</h2>
+  return `<div class="card"><h2>✅ Attendance</h2>${attTabs()}
     <div class="row" style="margin-bottom:12px">
       <div><label>Date</label><input type="date" value="${S.attDate}" max="${today()}" onchange="S.attDate=this.value;S.attDraft=null;S.attDirty=false;render()"></div>
       <div><label>Class</label><select onchange="S.attClass=this.value;S.attDraft=null;S.attDirty=false;render()">${classOptions(S.attClass)}</select></div>
@@ -369,6 +376,7 @@ VIEWS.attendance=()=>{
   </div>`;
 };
 VIEWS.attendance_after=()=>{
+  if(S.attMode==="staff") return staffAttSubscribe();
   const key=S.attDate;
   if(S.attKey===key) return;
   if(S.attUnsub)S.attUnsub();
@@ -575,7 +583,7 @@ function accountCard(m){
 VIEWS.expenses=()=>{
   const m=S.expMonth;
   const list=[...expensesFor(m)].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||0)-(a.createdAt||0));
-  const payees=[...new Set(S.expenses.map(x=>x.payee).filter(Boolean))];
+  const payees=[...new Set([...S.staff.map(x=>x.name),...S.expenses.map(x=>x.payee)].filter(Boolean))];
   return `<div class="card"><h2>🧾 Expenses</h2>
     <div class="row"><div><label>Month</label><input type="month" value="${m}" onchange="S.expMonth=this.value||thisMonth();render()"></div>
     <button class="ghost shrink" onclick="repeatLastMonth()">🔁 Copy last month's rent &amp; salaries</button>
@@ -645,6 +653,147 @@ function yearTable(y){
   const P=T.i-T.e;
   return `<div class="tablewrap"><table><tr><th>Month</th><th class="right">Fees collected</th><th class="right">Expenses</th><th class="right">Profit / Loss</th></tr>${rows}
    <tr><td><b>Total</b></td><td class="right"><b>${esc(money(T.i))}</b></td><td class="right"><b>${esc(money(T.e))}</b></td><td class="right" style="color:${P>=0?"var(--ok)":"var(--bad)"}"><b>${P<0?"−":""}${esc(money(Math.abs(P)))}</b></td></tr></table></div>`;
+}
+
+// ----- teachers & staff -----
+const ROLES=["Teacher","Peon","Other staff"];
+function activeStaff(){return S.staff.filter(x=>x.status!=="left").sort((a,b)=>ROLES.indexOf(a.role)-ROLES.indexOf(b.role)||(a.name||"").localeCompare(b.name||""));}
+function salaryCat(x){return x.role==="Teacher"?"Teacher salary":x.role==="Peon"?"Peon salary":"Other";}
+function salaryPaid(x,m){return sum(S.expenses.filter(e=>e.month===m&&(e.staffId===x.id||(!e.staffId&&e.payee===x.name&&e.category===salaryCat(x)))));}
+
+VIEWS.staff=()=>{
+  const m=S.staffMonth;
+  const list=S.staffShowLeft?S.staff.filter(x=>x.status==="left"):activeStaff();
+  const att=S.staffAtt&&S.staffAtt.key===m?S.staffAtt.docs:null;
+  return `<div class="card"><h2>👩‍🏫 Teachers &amp; Staff</h2>
+    <div class="row" style="margin-bottom:12px">
+      <div><label>Month</label><input type="month" value="${m}" onchange="S.staffMonth=this.value||thisMonth();render()"></div>
+      <div><label>Show</label><select onchange="S.staffShowLeft=this.value==='left';render()"><option value="active">Working</option><option value="left" ${S.staffShowLeft?"selected":""}>Left</option></select></div>
+      <button class="shrink" onclick="editStaff()">➕ Add teacher / staff</button>
+      <button class="ghost shrink" onclick="S.attMode='staff';go('attendance')">✅ Take staff attendance</button>
+    </div>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Name</th><th>Role</th><th>Phone</th><th class="right">Salary</th><th class="right">Present</th><th class="right">Absent</th><th class="right">Leave</th><th>Salary ${esc(monthName(m))}</th><th></th></tr>
+    ${list.map(x=>{
+      let P=0,A=0,L=0; if(att)att.forEach(d=>{const k=d.marks&&d.marks[x.id];if(k==="P")P++;else if(k==="A")A++;else if(k==="L")L++;});
+      const paid=salaryPaid(x,m), sal=Number(x.salary||0);
+      const st=!sal?'<span class="pill grey">—</span>':paid>=sal?'<span class="pill ok">Paid</span>':paid>0?`<span class="pill warn">Paid ${esc(money(paid))}</span>`:'<span class="pill bad">Not paid</span>';
+      return `<tr><td><b>${esc(x.name)}</b>${x.subject?`<div class="muted" style="font-size:12px">${esc(x.subject)}</div>`:""}</td><td>${esc(x.role)}</td><td>${esc(x.phone)}</td><td class="right">${esc(money(sal))}</td>
+        <td class="right">${att?P:"…"}</td><td class="right">${att?A:"…"}</td><td class="right">${att?L:"…"}</td><td>${st}</td>
+        <td class="right" style="white-space:nowrap">${sal&&paid<sal?`<button class="sm ok" onclick="paySalary('${x.id}')">Pay salary</button> `:""}<button class="sm ghost" onclick="editStaff('${x.id}')">Edit</button></td></tr>`;}).join("")}
+    </table></div><p class="muted" style="font-size:13px">Present / Absent / Leave = days in ${esc(monthName(m))}. Salary payments are saved in 🧾 Expenses.</p>`
+    :`<div class="empty">No ${S.staffShowLeft?"former":""} staff added yet. Tap “Add teacher / staff”.</div>`}
+  </div>`;
+};
+VIEWS.staff_after=()=>loadStaffAtt(S.staffMonth);
+function loadStaffAtt(m){
+  if(S.staffAtt&&S.staffAtt.key===m||S.staffAttLoading===m)return;
+  S.staffAttLoading=m;
+  S.db.collection("staffAttendance").where("date",">=",m+"-01").where("date","<=",m+"-31").get()
+    .then(q=>{S.staffAtt={key:m,docs:q.docs.map(d=>d.data())};S.staffAttLoading=null;if(view()==="staff")render();})
+    .catch(()=>{S.staffAtt={key:m,docs:[]};S.staffAttLoading=null;if(view()==="staff")render();});
+}
+function editStaff(id){
+  const x=id?S.staff.find(s=>s.id===id):{};
+  modal(`<h3>${id?"Edit "+esc(x.name):"Add teacher / staff"}</h3>
+   <form class="form" onsubmit="submitStaff(event,'${id||""}')">
+     <div><label>Name *</label><input name="name" required value="${esc(x.name)}"></div>
+     <div><label>Role</label><select name="role">${ROLES.map(r=>`<option ${r===x.role?"selected":""}>${r}</option>`).join("")}</select></div>
+     <div><label>Subject / duty</label><input name="subject" placeholder="e.g. Maths, English" value="${esc(x.subject)}"></div>
+     <div><label>Phone / WhatsApp</label><input name="phone" inputmode="tel" value="${esc(x.phone)}"></div>
+     <div><label>Monthly salary (${esc(S.settings.currency)})</label><input type="number" min="0" name="salary" value="${esc(x.salary??"")}"></div>
+     <div><label>Joining date</label><input type="date" name="joinDate" value="${esc(x.joinDate||today())}"></div>
+     ${id?`<div><label>Status</label><select name="status"><option value="active">Working</option><option value="left" ${x.status==="left"?"selected":""}>Left</option></select></div>`:""}
+     <div style="grid-column:1/-1" class="row"><button type="submit">Save</button>${id?`<button type="button" class="danger shrink" onclick="deleteStaff('${id}')">Delete</button>`:""}<button type="button" class="ghost shrink" onclick="closeModal()">Cancel</button></div>
+   </form>`);
+}
+async function submitStaff(e,id){
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target).entries());
+  const rec={name:d.name.trim(),role:d.role,subject:d.subject.trim(),phone:d.phone.trim(),salary:Number(d.salary||0),joinDate:d.joinDate,status:d.status||"active"};
+  e.target.querySelector("button[type=submit]").disabled=true;
+  const ok=id?await save(()=>S.db.doc("staff/"+id).update(rec),"Saved")
+             :await save(()=>S.db.collection("staff").doc().set({...rec,createdAt:Date.now()}),rec.name+" added");
+  if(ok)closeModal(); else e.target.querySelector("button[type=submit]").disabled=false;
+}
+function deleteStaff(id){
+  const x=S.staff.find(s=>s.id===id);
+  ask(`Delete ${x.name} permanently? (Tip: use Status → "Left" to keep their record.)`,"Delete",()=>save(()=>S.db.doc("staff/"+id).delete(),"Deleted"));
+}
+function paySalary(id){
+  const x=S.staff.find(s=>s.id===id), m=S.staffMonth, bal=Math.max(0,Number(x.salary||0)-salaryPaid(x,m));
+  modal(`<h3>Pay salary — ${esc(x.name)}</h3><p class="muted">${esc(x.role)} · Salary ${esc(money(x.salary))} · For ${esc(monthName(m))}</p>
+   <form class="form" onsubmit="submitSalary(event,'${id}')">
+     <div><label>Amount (${esc(S.settings.currency)}) *</label><input type="number" min="1" name="amount" required value="${bal||""}"></div>
+     <div><label>Date paid</label><input type="date" name="date" value="${today()}"></div>
+     <div><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>JazzCash</option><option>Easypaisa</option><option>Other</option></select></div>
+     <div><label>Note</label><input name="note" placeholder="optional, e.g. advance, deduction"></div>
+     <div style="grid-column:1/-1" class="row"><button type="submit" class="ok">Save payment</button><button type="button" class="ghost shrink" onclick="closeModal()">Cancel</button></div>
+   </form>`);
+}
+async function submitSalary(e,id){
+  e.preventDefault();
+  const x=S.staff.find(s=>s.id===id), d=Object.fromEntries(new FormData(e.target).entries());
+  e.target.querySelector("button[type=submit]").disabled=true;
+  const ok=await save(()=>S.db.collection("expenses").doc().set({category:salaryCat(x),payee:x.name,staffId:id,amount:Number(d.amount),date:d.date||today(),month:S.staffMonth,method:d.method,note:d.note.trim()||(x.role==="Other staff"?"Salary":""),createdAt:Date.now()}),"Salary saved in Expenses");
+  if(ok)closeModal(); else e.target.querySelector("button[type=submit]").disabled=false;
+}
+
+// staff attendance (shown inside the Attendance tab)
+function staffAttendanceView(){
+  const list=activeStaff(), marks=S.sattDraft||{};
+  const counts={P:0,A:0,L:0}; list.forEach(x=>{if(marks[x.id])counts[marks[x.id]]++;});
+  return `<div class="row" style="margin-bottom:12px"><div><label>Date</label><input type="date" value="${S.sattDate}" max="${today()}" onchange="S.sattDate=this.value;S.sattDraft=null;S.sattDirty=false;render()"></div></div>
+    ${S.sattLoading?`<div class="empty">Loading…</div>`:!list.length?`<div class="empty">No teachers or staff added yet. Add them in <a href="#staff">👩‍🏫 Staff</a>.</div>`:`
+    <p>${S.sattDoc?'<span class="pill ok">Saved</span>':'<span class="pill warn">Not saved yet</span>'}
+      &nbsp; Present <b>${counts.P}</b> · Absent <b>${counts.A}</b> · Leave <b>${counts.L}</b> · Not marked <b>${list.length-counts.P-counts.A-counts.L}</b></p>
+    <div class="row" style="margin-bottom:10px"><button class="ghost shrink sm" onclick="smarkAll('P')">Mark everyone Present</button></div>
+    <div class="tablewrap"><table><tr><th>Name</th><th>Role</th><th>Mark</th><th>Time in</th></tr>
+    ${list.map(x=>`<tr><td><b>${esc(x.name)}</b>${x.subject?`<div class="muted" style="font-size:12px">${esc(x.subject)}</div>`:""}</td><td>${esc(x.role)}</td>
+      <td><div class="att">${["P","A","L"].map(k=>`<button class="${k} ${marks[x.id]===k?"on":""}" onclick="smark('${x.id}','${k}')" title="${{P:"Present",A:"Absent",L:"Leave"}[k]}">${k}</button>`).join("")}</div></td>
+      <td><input type="time" style="max-width:130px" value="${esc((S.sattTimes||{})[x.id]||"")}" onchange="stime('${x.id}',this.value)"></td></tr>`).join("")}
+    </table></div>
+    <p class="muted" style="font-size:13px">P = Present · A = Absent · L = Leave · Time in is optional</p>
+    <div class="row"><button class="ok" onclick="saveStaffAttendance()">💾 Save staff attendance</button></div>`}`;
+}
+function staffAttSubscribe(){
+  const key=S.sattDate;
+  if(S.sattKey===key)return;
+  if(S.sattUnsub)S.sattUnsub();
+  S.sattKey=key;S.sattLoading=true;S.sattDoc=null;
+  const t=setTimeout(()=>{S.sattLoading=false;S.offline=true;render();},10000);
+  S.sattUnsub=S.db.doc("staffAttendance/"+key).onSnapshot(snap=>{
+    if(!snap.metadata.fromCache)clearTimeout(t);
+    S.sattLoading=false;S.sattDoc=snap.exists?snap.data():null;
+    if(!S.sattDirty){S.sattDraft={...(S.sattDoc&&S.sattDoc.marks||{})};S.sattTimes={...(S.sattDoc&&S.sattDoc.times||{})};}
+    render();
+  },()=>{clearTimeout(t);S.sattLoading=false;render();});
+}
+function sEnsure(){if(!S.sattDraft)S.sattDraft={...(S.sattDoc&&S.sattDoc.marks||{})};if(!S.sattTimes)S.sattTimes={...(S.sattDoc&&S.sattDoc.times||{})};}
+function smark(id,k){sEnsure();S.sattDirty=true;S.sattDraft[id]=k;render();}
+function smarkAll(k){sEnsure();S.sattDirty=true;activeStaff().forEach(x=>S.sattDraft[x.id]=k);render();}
+function stime(id,v){sEnsure();S.sattDirty=true;S.sattTimes[id]=v;if(v&&!S.sattDraft[id])S.sattDraft[id]="P";render();}
+async function saveStaffAttendance(){
+  sEnsure();
+  const unmarked=activeStaff().filter(x=>!S.sattDraft[x.id]).length;
+  const doSave=async()=>{
+    const times={};Object.entries(S.sattTimes||{}).forEach(([k,v])=>{if(v)times[k]=v;});
+    const ok=await save(()=>S.db.doc("staffAttendance/"+S.sattDate).set({date:S.sattDate,marks:{...S.sattDraft},times,updatedAt:Date.now()}),"Staff attendance saved");
+    if(ok){S.sattDirty=false;S.staffAtt=null;}
+  };
+  if(unmarked)ask(`${unmarked} staff member(s) are not marked. Save anyway?`,"Save anyway",doSave);else doSave();
+}
+async function exportStaffAttendance(){
+  const q=await S.db.collection("staffAttendance").get();
+  const names={};S.staff.forEach(x=>names[x.id]=x);
+  const rows=[["Date","Name","Role","Status","Time in"]];
+  q.docs.map(d=>d.data()).sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(d=>
+    Object.entries(d.marks||{}).forEach(([id,k])=>{const x=names[id]||{};rows.push([d.date,x.name||"(deleted)",x.role,{P:"Present",A:"Absent",L:"Leave"}[k]||k,(d.times||{})[id]||""]);}));
+  download("staff-attendance.csv",csv(rows));
+}
+function exportStaff(){
+  const rows=[["Name","Role","Subject / duty","Phone","Monthly salary","Joining date","Status"]];
+  [...S.staff].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(x=>rows.push([x.name,x.role,x.subject,x.phone,x.salary,x.joinDate,x.status==="left"?"Left":"Working"]));
+  download("staff.csv",csv(rows));
 }
 
 // ----- downloads (CSV, opens in Excel) -----
@@ -729,7 +878,7 @@ function makeLocalDB(){
 }
 
 // ---------- backup & export ----------
-const BACKUP_COLLS=["settings","students","fees","expenses","attendance"];
+const BACKUP_COLLS=["settings","students","fees","expenses","attendance","staff","staffAttendance"];
 async function buildBackup(){
   const data={};
   for(const c of BACKUP_COLLS){const q=await S.db.collection(c).get();q.docs.forEach(d=>data[c+"/"+d.id]=d.data());}
@@ -762,7 +911,7 @@ function restoreBackup(input){
     const count=c=>entries.filter(([p])=>p.startsWith(c+"/")).length;
     modal(`<h3>Restore this backup?</h3><p class="muted">Made on ${esc(new Date(b.exportedAt).toLocaleString())}</p>
       <table><tr><td>Students</td><td class="right">${count("students")}</td></tr><tr><td>Fee payments</td><td class="right">${count("fees")}</td></tr>
-      <tr><td>Expenses</td><td class="right">${count("expenses")}</td></tr><tr><td>Attendance days</td><td class="right">${count("attendance")}</td></tr></table>
+      <tr><td>Expenses</td><td class="right">${count("expenses")}</td></tr><tr><td>Attendance days</td><td class="right">${count("attendance")}</td></tr><tr><td>Teachers &amp; staff</td><td class="right">${count("staff")}</td></tr><tr><td>Staff attendance days</td><td class="right">${count("staffAttendance")}</td></tr></table>
       <p class="muted" style="font-size:13px">Records from the backup are added to this app. Records already here with the same entry are replaced by the backup copy; nothing else is deleted. Restoring the same file twice does not create duplicates.</p>
       <div id="restoreMsg" class="muted"></div>
       <div class="row" style="margin-top:12px"><button class="ghost" onclick="closeModal()" id="restoreCancel">Cancel</button><button class="ok" id="restoreGo">Restore</button></div>`);
@@ -796,6 +945,8 @@ VIEWS.backup=()=>`<div class="card"><h2>💾 Backup &amp; Export</h2>
     <button class="ghost shrink" onclick="exportAttendance()">✅ Attendance</button>
     <button class="ghost shrink" onclick="exportFees()">💰 Fee payments</button>
     <button class="ghost shrink" onclick="exportExpenses()">🧾 Expenses</button>
+    <button class="ghost shrink" onclick="exportStaff()">👩‍🏫 Staff list</button>
+    <button class="ghost shrink" onclick="exportStaffAttendance()">👩‍🏫 Staff attendance</button>
   </div></div>`;
 
 // ---------- boot ----------
@@ -817,6 +968,7 @@ render();
   db.collection("students").onSnapshot(q=>{S.students=q.docs.map(d=>({id:d.id,...d.data()}));done("students",q);softRender();},fail);
   db.collection("fees").onSnapshot(q=>{S.fees=q.docs.map(d=>({id:d.id,...d.data()}));done("fees",q);softRender();},fail);
   db.collection("expenses").onSnapshot(q=>{S.expenses=q.docs.map(d=>({id:d.id,...d.data()}));done("expenses",q);softRender();},fail);
+  db.collection("staff").onSnapshot(q=>{S.staff=q.docs.map(d=>({id:d.id,...d.data()}));done("staff",q);softRender();},fail);
 })();
 </script>
 </body>
