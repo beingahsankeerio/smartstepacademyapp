@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Step Academy</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --ink:#1d2433; --muted:#667085; --line:#e4e7ec;
+    --brand:#1f5fbf; --brand-soft:#e8f0fc; --ok:#12805c; --ok-soft:#e3f5ee;
+    --bad:#c4321f; --bad-soft:#fdecea; --warn:#b26a00; --warn-soft:#fff4e0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  header{background:var(--brand);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px}
+  header .logo{width:38px;height:38px;border-radius:10px;background:#fff;color:var(--brand);display:grid;place-items:center;font-weight:800}
+  header h1{font-size:18px;margin:0}
+  header small{opacity:.85}
+  nav{display:flex;gap:4px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--line);padding:6px 10px;position:sticky;top:0;z-index:5}
+  nav a{padding:9px 13px;border-radius:8px;color:var(--muted);text-decoration:none;white-space:nowrap;font-weight:600}
+  nav a.on{background:var(--brand-soft);color:var(--brand)}
+  main{max-width:1050px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  h2{font-size:19px;margin:0 0 12px}
+  h3{font-size:16px;margin:0 0 10px}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat .n{font-size:26px;font-weight:800;margin-top:4px}
+  .stat .l{color:var(--muted);font-size:13px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:inherit}
+  textarea{min-height:60px}
+  .form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+  .row > *{flex:1;min-width:140px}
+  .row > .shrink{flex:0 0 auto;min-width:0}
+  button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;background:var(--brand);color:#fff}
+  button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  button.danger{background:var(--bad)}
+  button.ok{background:var(--ok)}
+  button.sm{padding:6px 10px;font-size:13px}
+  button:disabled{opacity:.5;cursor:default}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  .tablewrap{overflow-x:auto}
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:700}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.grey{background:#eef0f3;color:var(--muted)}
+  .att{display:flex;gap:4px}
+  .att button{padding:7px 12px;background:#fff;color:var(--muted);border:1px solid var(--line)}
+  .att button.P.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .att button.A.on{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .att button.L.on{background:var(--warn);color:#fff;border-color:var(--warn)}
+  .muted{color:var(--muted)}
+  .right{text-align:right}
+  .banner{padding:12px 14px;border-radius:10px;margin-bottom:14px;background:var(--warn-soft);color:var(--warn);font-weight:600}
+  .banner.bad{background:var(--bad-soft);color:var(--bad)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2433;color:#fff;padding:10px 18px;border-radius:10px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,20,30,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+  .receipt{border:2px dashed var(--line);border-radius:10px;padding:16px;font-size:14px}
+  .receipt .h{text-align:center;margin-bottom:10px}
+  .receipt .h b{font-size:18px}
+  .receipt table td{border:0;padding:4px 0}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  .search{max-width:320px}
+  a.wa{color:var(--ok);font-weight:700;text-decoration:none}
+  .bar{height:8px;background:#eef0f3;border-radius:99px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SS</div>
+  <div><h1 id="acName">Smart Step Academy</h1><small>Attendance · Admissions · Fees<span id="modeTag"></span></small></div>
+</header>
+<nav id="nav">
+  <a href="#home" data-v="home">🏠 Home</a>
+  <a href="#admission" data-v="admission">➕ New Admission</a>
+  <a href="#students" data-v="students">👨‍🎓 Students</a>
+  <a href="#attendance" data-v="attendance">✅ Attendance</a>
+  <a href="#fees" data-v="fees">💰 Fees</a>
+  <a href="#expenses" data-v="expenses">🧾 Expenses</a>
+  <a href="#reports" data-v="reports">📊 Reports</a>
+  <a href="#backup" data-v="backup">💾 Backup</a>
+  <a href="#setup" data-v="setup">⚙️ Setup</a>
+</nav>
+<main id="app"><div class="empty">Loading your academy data…</div></main>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+
+<script>
+// ---------- state ----------
+const S = {
+  db:null, dl:null, ready:{students:false,fees:false,settings:false,expenses:false}, offline:false, error:null,
+  students:[], fees:[], expenses:[], expMonth: thisMonth(), settings:{academyName:"Smart Step Academy", currency:"Rs.", classes:["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"], phone:"", address:""},
+  attDate: today(), attClass:"", attDoc:null, attUnsub:null, attDraft:null,
+  feeMonth: thisMonth(), feeClass:"", stuSearch:"", stuClass:"", stuStatus:"active", editId:null,
+  repMonth: thisMonth(), repClass:"", repData:null,
+};
+
+function today(){const d=new Date();return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());}
+function thisMonth(){return today().slice(0,7);}
+function p2(n){return String(n).padStart(2,"0");}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function money(n){return S.settings.currency+" "+Number(n||0).toLocaleString();}
+function monthName(m){if(!m)return"";const [y,mo]=m.split("-");return new Date(+y,+mo-1,1).toLocaleString(undefined,{month:"long",year:"numeric"});}
+function niceDate(d){if(!d)return"";const [y,m,dd]=d.split("-");return new Date(+y,+m-1,+dd).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});}
+function $(id){return document.getElementById(id);}
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2400);}
+function modal(html){$("modal").innerHTML=html;$("modalBg").classList.add("show");}
+function closeModal(){$("modalBg").classList.remove("show");}
+$("modalBg").addEventListener("click",e=>{if(e.target.id==="modalBg")closeModal();});
+function ask(question, yesLabel, onYes){
+  modal(`<h3>${esc(question)}</h3><div class="row" style="margin-top:16px"><button class="ghost" onclick="closeModal()">Cancel</button><button class="danger" id="askYes">${esc(yesLabel)}</button></div>`);
+  $("askYes").onclick=()=>{closeModal();onYes();};
+}
+function waOf(s){return s.phone||s.whatsapp||"";}
+function phoneForWa(p){let d=String(p||"").replace(/\D/g,"");if(d.startsWith("0"))d="92"+d.slice(1);return d;}
+function active(){return S.students.filter(s=>s.status!=="left");}
+function byClass(list,cls){return cls?list.filter(s=>s.cls===cls):list;}
+function sortStu(list){return [...list].sort((a,b)=>(a.cls||"").localeCompare(b.cls||"",undefined,{numeric:true})||(a.name||"").localeCompare(b.name||""));}
+function classOptions(sel, withAll){
+  return (withAll?`<option value="">All classes</option>`:"")+S.settings.classes.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
+}
+function paidFor(sid, month){return S.fees.filter(f=>f.studentId===sid&&f.month===month&&f.type!=="admission").reduce((a,f)=>a+Number(f.amount||0),0);}
+async function save(fn, okMsg){
+  try{await fn(); if(okMsg)toast(okMsg); return true;}
+  catch(e){
+    const c=e&&e.code;
+    toast(c==="quota_exceeded"?"Storage is full — please delete old records.":c==="invalid_argument"?"You don't have permission to save here.":"Could not save. Please check internet and try again.");
+    return false;
+  }
+}
+
+// ---------- routing ----------
+function view(){const v=(location.hash||"#home").slice(1);return ["home","admission","students","attendance","fees","expenses","reports","backup","setup"].includes(v)?v:"home";}
+window.addEventListener("hashchange",render);
+function go(v){location.hash=v;}
+
+document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#app form"))S.dirty=true;});
+function softRender(){if(S.dirty&&$("app").querySelector("form"))return;render();}
+function render(){
+  S.dirty=false;
+  const v=view();
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  $("acName").textContent=S.settings.academyName||"Smart Step Academy";
+  $("modeTag").textContent=S.local?" · Offline version (this computer)":"";
+  if(!S.db){
+    $("app").innerHTML=S.dbChecked
+      ?`<div class="banner bad">This app could not connect to its storage. Please open it from your claude.ai link while signed in to your Claude account.</div>`
+      :`<div class="empty">Connecting to your academy data…</div>`;
+    return;
+  }
+  let top="";
+  if(S.error) top=`<div class="banner bad">${esc(S.error)}</div>`;
+  else if(S.offline) top=`<div class="banner">Can't reach your saved data right now — check your internet. Showing what's loaded so far.</div>`;
+  if(v!=="attendance" && S.attUnsub){S.attUnsub();S.attUnsub=null;S.attDoc=null;S.attKey=null;}
+  $("app").innerHTML=top+VIEWS[v]();
+  if(VIEWS[v+"_after"])VIEWS[v+"_after"]();
+}
+
+// ---------- views ----------
+const VIEWS={};
+
+VIEWS.home=()=>{
+  const act=active(); const m=thisMonth();
+  const collected=S.fees.filter(f=>(f.date||"").startsWith(m)).reduce((a,f)=>a+Number(f.amount||0),0);
+  const dueList=act.filter(s=>Number(s.monthlyFee||0)>paidFor(s.id,m));
+  const due=dueList.reduce((a,s)=>a+Number(s.monthlyFee||0)-paidFor(s.id,m),0);
+  const newAdm=S.students.filter(s=>(s.admissionDate||"").startsWith(m)).length;
+  const recent=[...S.fees].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,6);
+  return `
+  <div class="grid" style="margin-bottom:16px">
+    <div class="stat"><div class="l">Active students</div><div class="n">${act.length}</div></div>
+    <div class="stat"><div class="l">New admissions (${esc(monthName(m))})</div><div class="n">${newAdm}</div></div>
+    <div class="stat"><div class="l">Fees collected this month</div><div class="n" style="color:var(--ok)">${esc(money(collected))}</div></div>
+    <div class="stat"><div class="l">Expenses this month</div><div class="n" style="color:var(--bad)">${esc(money(sum(expensesFor(m))))}</div></div>
+    <div class="stat"><div class="l">${collected-sum(expensesFor(m))>=0?"Profit":"Loss"} this month</div><div class="n" style="color:${collected-sum(expensesFor(m))>=0?"var(--ok)":"var(--bad)"}">${esc(money(Math.abs(collected-sum(expensesFor(m)))))}</div></div>
+    <div class="stat"><div class="l">Fees still due this month</div><div class="n" style="color:var(--bad)">${esc(money(due))}</div><div class="l">${dueList.length} students</div></div>
+  </div>
+  <div class="card"><h3>Quick actions</h3>
+    <div class="row">
+      <button onclick="go('attendance')">✅ Take today's attendance</button>
+      <button onclick="go('admission')">➕ New admission</button>
+      <button onclick="go('fees')">💰 Collect fee</button>
+      <button onclick="go('expenses')">🧾 Add expense</button>
+    </div>
+  </div>
+  ${act.length===0?`<div class="card"><h3>👋 Welcome!</h3><p>Start in 2 steps:</p><ol><li>Go to <a href="#setup">⚙️ Setup</a> and check your class names and academy details.</li><li>Go to <a href="#admission">➕ New Admission</a> and add your students.</li></ol><p class="muted">After that you can take attendance and collect fees every day.</p></div>`:""}
+  <div class="card"><h3>Recent fee payments</h3>
+    ${recent.length?`<div class="tablewrap"><table><tr><th>Date</th><th>Student</th><th>For</th><th class="right">Amount</th></tr>
+    ${recent.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.studentName)}</td><td>${f.type==="admission"?"Admission fee":esc(monthName(f.month))}</td><td class="right">${esc(money(f.amount))}</td></tr>`).join("")}</table></div>`:`<div class="empty">No payments yet.</div>`}
+  </div>`;
+};
+
+function studentForm(s){
+  s=s||{};
+  const nextRoll=S.students.reduce((a,x)=>Math.max(a,Number(x.rollNo)||0),0)+1;
+  return `
+  <form id="stuForm" class="form" onsubmit="submitStudent(event)">
+    <div><label>Admission / Roll No.</label><input name="rollNo" value="${esc(s.rollNo??nextRoll)}"></div>
+    <div><label>Student name *</label><input name="name" required value="${esc(s.name)}"></div>
+    <div><label>Father / Guardian name</label><input name="father" value="${esc(s.father)}"></div>
+    <div><label>Class *</label><select name="cls" required>${classOptions(s.cls)}</select></div>
+    <div><label>Phone (parent)</label><input name="phone" inputmode="tel" placeholder="03xx xxxxxxx" value="${esc(s.phone)}"></div>
+    <div><label>Student WhatsApp number</label><input name="whatsapp" inputmode="tel" placeholder="03xx xxxxxxx" value="${esc(s.whatsapp)}"></div>
+    <div><label>Gender</label><select name="gender">${["","Male","Female"].map(g=>`<option ${g===(s.gender||"")?"selected":""}>${g}</option>`).join("")}</select></div>
+    <div><label>Date of birth</label><input type="date" name="dob" value="${esc(s.dob)}"></div>
+    <div><label>Admission date</label><input type="date" name="admissionDate" value="${esc(s.admissionDate||today())}"></div>
+    <div><label>Monthly fee (${esc(S.settings.currency)})</label><input type="number" min="0" name="monthlyFee" value="${esc(s.monthlyFee??"")}"></div>
+    ${s.id?`<div><label>Status</label><select name="status"><option value="active" ${s.status!=="left"?"selected":""}>Active</option><option value="left" ${s.status==="left"?"selected":""}>Left academy</option></select></div>`
+          :`<div><label>Admission fee received now (${esc(S.settings.currency)})</label><input type="number" min="0" name="admFee" placeholder="0"></div>`}
+    <div style="grid-column:1/-1"><label>Address</label><input name="address" value="${esc(s.address)}"></div>
+    <div style="grid-column:1/-1"><label>Notes</label><textarea name="notes">${esc(s.notes)}</textarea></div>
+    <div style="grid-column:1/-1" class="row"><button type="submit">${s.id?"Save changes":"Save admission"}</button>${s.id?`<button type="button" class="ghost shrink" onclick="closeModal()">Cancel</button>`:""}</div>
+  </form>`;
+}
+
+VIEWS.admission=()=>{
+  if(!S.settings.classes.length) return `<div class="card"><div class="banner">Please add your classes first in <a href="#setup">⚙️ Setup</a>.</div></div>`;
+  return `<div class="card"><h2>➕ New Admission</h2>${studentForm()}</div>`;
+};
+
+async function submitStudent(e){
+  e.preventDefault();
+  const f=new FormData(e.target); const d=Object.fromEntries(f.entries());
+  const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
+  const rec={rollNo:d.rollNo.trim(),name:d.name.trim(),father:d.father.trim(),cls:d.cls,phone:d.phone.trim(),whatsapp:d.whatsapp.trim(),gender:d.gender,dob:d.dob,
+    admissionDate:d.admissionDate,monthlyFee:Number(d.monthlyFee||0),address:d.address.trim(),notes:d.notes.trim()};
+  if(S.editId){
+    rec.status=d.status;
+    const ok=await save(()=>S.db.doc("students/"+S.editId).update(rec),"Student updated");
+    if(ok){S.editId=null;closeModal();} else btn.disabled=false;
+    return;
+  }
+  rec.status="active"; rec.createdAt=Date.now();
+  const ref=S.db.collection("students").doc();
+  const ok=await save(()=>ref.set(rec));
+  if(!ok){btn.disabled=false;return;}
+  const adm=Number(d.admFee||0);
+  if(adm>0){
+    await save(()=>S.db.collection("fees").doc().set({studentId:ref.id,studentName:rec.name,cls:rec.cls,type:"admission",month:rec.admissionDate.slice(0,7),
+      amount:adm,date:today(),method:"Cash",receiptNo:receiptNo(),note:"Admission fee",createdAt:Date.now()}));
+  }
+  toast("Admission saved for "+rec.name);
+  e.target.reset(); go("students");
+}
+
+VIEWS.students=()=>{
+  let list=S.students;
+  if(S.stuStatus) list=list.filter(s=>S.stuStatus==="left"?s.status==="left":s.status!=="left");
+  list=byClass(list,S.stuClass);
+  const q=S.stuSearch.toLowerCase().trim();
+  if(q) list=list.filter(s=>[s.name,s.father,s.phone,s.whatsapp,s.rollNo].some(x=>String(x||"").toLowerCase().includes(q)));
+  list=sortStu(list);
+  return `<div class="card"><h2>👨‍🎓 Students</h2>
+    <div class="row" style="margin-bottom:12px">
+      <input class="search" placeholder="🔍 Search name, father, phone, roll no" value="${esc(S.stuSearch)}" oninput="S.stuSearch=this.value;renderKeepFocus(this)" id="stuSearch">
+      <select onchange="S.stuClass=this.value;render()">${classOptions(S.stuClass,true)}</select>
+      <select onchange="S.stuStatus=this.value;render()"><option value="active" ${S.stuStatus==="active"?"selected":""}>Active</option><option value="left" ${S.stuStatus==="left"?"selected":""}>Left academy</option><option value="" ${S.stuStatus===""?"selected":""}>Everyone</option></select>
+      <button class="ghost shrink" onclick="exportStudents()">⬇️ Download list</button>
+    </div>
+    <p class="muted">${list.length} student(s)</p>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Roll</th><th>Name</th><th>Father</th><th>Class</th><th>Phone / WhatsApp</th><th class="right">Monthly fee</th><th></th></tr>
+    ${list.map(s=>`<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b>${s.status==="left"?' <span class="pill grey">Left</span>':""}</td><td>${esc(s.father)}</td><td>${esc(s.cls)}</td>
+      <td>${esc(s.phone)}${s.whatsapp?`<div style="font-size:12px"><a class="wa" href="https://wa.me/${phoneForWa(s.whatsapp)}" target="_blank" rel="noopener">WA ${esc(s.whatsapp)}</a></div>`:""}</td><td class="right">${esc(money(s.monthlyFee))}</td>
+      <td class="right" style="white-space:nowrap"><button class="sm ghost" onclick="showStudent('${s.id}')">View</button> <button class="sm ghost" onclick="editStudent('${s.id}')">Edit</button></td></tr>`).join("")}
+    </table></div>`:`<div class="empty">No students found. <a href="#admission">Add a new admission</a>.</div>`}
+  </div>`;
+};
+function renderKeepFocus(el){const id=el.id,pos=el.selectionStart;render();const n=$(id);if(n){n.focus();n.setSelectionRange(pos,pos);}}
+
+function editStudent(id){
+  const s=S.students.find(x=>x.id===id); if(!s)return;
+  S.editId=id;
+  modal(`<h3>Edit ${esc(s.name)}</h3>${studentForm(s)}`);
+}
+function showStudent(id){
+  const s=S.students.find(x=>x.id===id); if(!s)return;
+  const pays=S.fees.filter(f=>f.studentId===id).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const total=pays.reduce((a,f)=>a+Number(f.amount||0),0);
+  modal(`<h3>${esc(s.name)} <span class="pill ${s.status==="left"?"grey":"ok"}">${s.status==="left"?"Left":"Active"}</span></h3>
+    <table>
+      <tr><td class="muted">Roll No.</td><td>${esc(s.rollNo)}</td></tr>
+      <tr><td class="muted">Father/Guardian</td><td>${esc(s.father)}</td></tr>
+      <tr><td class="muted">Class</td><td>${esc(s.cls)}</td></tr>
+      <tr><td class="muted">Phone (parent)</td><td>${esc(s.phone)} ${s.phone?`· <a class="wa" href="https://wa.me/${phoneForWa(s.phone)}" target="_blank" rel="noopener">WhatsApp</a>`:""}</td></tr>
+      <tr><td class="muted">Student WhatsApp</td><td>${s.whatsapp?`${esc(s.whatsapp)} · <a class="wa" href="https://wa.me/${phoneForWa(s.whatsapp)}" target="_blank" rel="noopener">Open chat</a>`:'<span class="muted">—</span>'}</td></tr>
+      <tr><td class="muted">Date of birth</td><td>${esc(niceDate(s.dob))}</td></tr>
+      <tr><td class="muted">Admission date</td><td>${esc(niceDate(s.admissionDate))}</td></tr>
+      <tr><td class="muted">Monthly fee</td><td>${esc(money(s.monthlyFee))}</td></tr>
+      <tr><td class="muted">Address</td><td>${esc(s.address)}</td></tr>
+      ${s.notes?`<tr><td class="muted">Notes</td><td>${esc(s.notes)}</td></tr>`:""}
+    </table>
+    <h3 style="margin-top:16px">Fee history (total ${esc(money(total))})</h3>
+    ${pays.length?`<table>${pays.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${f.type==="admission"?"Admission":esc(monthName(f.month))}</td><td class="right">${esc(money(f.amount))}</td><td class="right"><button class="sm ghost" onclick="showReceipt('${f.id}')">Receipt</button></td></tr>`).join("")}</table>`:`<p class="muted">No payments yet.</p>`}
+    <div class="row" style="margin-top:16px">
+      <button onclick="closeModal();S.feeStudent='${s.id}';go('fees');setTimeout(()=>openPay('${s.id}'),50)">💰 Collect fee</button>
+      <button class="ghost" onclick="editStudent('${s.id}')">Edit</button>
+      <button class="danger shrink" onclick="deleteStudent('${s.id}')">Delete</button>
+      <button class="ghost shrink" onclick="closeModal()">Close</button>
+    </div>`);
+}
+function deleteStudent(id){
+  const s=S.students.find(x=>x.id===id);
+  ask(`Delete ${s.name} permanently? (Tip: to keep their history, use Edit → Status → "Left academy" instead.)`,"Delete",
+    ()=>save(()=>S.db.doc("students/"+id).delete(),"Student deleted"));
+}
+
+// ----- attendance -----
+VIEWS.attendance=()=>{
+  if(!S.attClass && S.settings.classes.length) S.attClass=S.settings.classes[0];
+  if(!S.attDraft&&!S.attLoading) ensureDraft();
+  const list=sortStu(byClass(active(),S.attClass));
+  const marks=S.attDraft||{};
+  const counts={P:0,A:0,L:0}; list.forEach(s=>{if(marks[s.id])counts[marks[s.id]]++;});
+  const savedHere=S.attDoc&&S.attDoc.classes&&S.attDoc.classes[S.attClass];
+  return `<div class="card"><h2>✅ Attendance</h2>
+    <div class="row" style="margin-bottom:12px">
+      <div><label>Date</label><input type="date" value="${S.attDate}" max="${today()}" onchange="S.attDate=this.value;S.attDraft=null;S.attDirty=false;render()"></div>
+      <div><label>Class</label><select onchange="S.attClass=this.value;S.attDraft=null;S.attDirty=false;render()">${classOptions(S.attClass)}</select></div>
+    </div>
+    ${S.attLoading?`<div class="empty">Loading…</div>`:!list.length?`<div class="empty">No active students in this class.</div>`:`
+    <p>${savedHere?'<span class="pill ok">Saved</span>':'<span class="pill warn">Not saved yet</span>'}
+      &nbsp; Present <b>${counts.P}</b> · Absent <b>${counts.A}</b> · Leave <b>${counts.L}</b> · Not marked <b>${list.length-counts.P-counts.A-counts.L}</b></p>
+    <div class="row" style="margin-bottom:10px"><button class="ghost shrink sm" onclick="markAll('P')">Mark everyone Present</button></div>
+    <div class="tablewrap"><table><tr><th>Roll</th><th>Name</th><th>Mark</th></tr>
+    ${list.map(s=>`<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b><div class="muted" style="font-size:12px">${esc(s.father)}</div></td>
+      <td><div class="att">${["P","A","L"].map(k=>`<button class="${k} ${marks[s.id]===k?"on":""}" onclick="mark('${s.id}','${k}')" title="${{P:"Present",A:"Absent",L:"Leave"}[k]}">${k}</button>`).join("")}</div></td></tr>`).join("")}
+    </table></div>
+    <p class="muted" style="font-size:13px">P = Present · A = Absent · L = Leave</p>
+    <div class="row"><button class="ok" onclick="saveAttendance()">💾 Save attendance</button></div>`}
+  </div>`;
+};
+VIEWS.attendance_after=()=>{
+  const key=S.attDate;
+  if(S.attKey===key) return;
+  if(S.attUnsub)S.attUnsub();
+  S.attKey=key; S.attLoading=true; S.attDoc=null;
+  const t=setTimeout(()=>{S.attLoading=false;S.offline=true;render();},10000);
+  S.attUnsub=S.db.doc("attendance/"+key).onSnapshot(snap=>{
+    if(!snap.metadata.fromCache){clearTimeout(t);}
+    S.attLoading=false;
+    S.attDoc=snap.exists?snap.data():null;
+    if(!S.attDirty) S.attDraft={...(S.attDoc&&S.attDoc.classes&&S.attDoc.classes[S.attClass]||{})};
+    render();
+  },err=>{clearTimeout(t);S.attLoading=false;render();});
+};
+function ensureDraft(){
+  if(!S.attDraft) S.attDraft={...(S.attDoc&&S.attDoc.classes&&S.attDoc.classes[S.attClass]||{})};
+}
+function mark(id,k){ensureDraft();S.attDirty=true;S.attDraft[id]=k;render();}
+function markAll(k){ensureDraft();S.attDirty=true;byClass(active(),S.attClass).forEach(s=>S.attDraft[s.id]=k);render();}
+async function saveAttendance(){
+  ensureDraft();
+  const list=byClass(active(),S.attClass);
+  const unmarked=list.filter(s=>!S.attDraft[s.id]).length;
+  const doSave=async()=>{
+    const ref=S.db.doc("attendance/"+S.attDate);
+    const classes={...(S.attDoc&&S.attDoc.classes||{})};
+    classes[S.attClass]={...S.attDraft};
+    const ok=await save(()=>ref.set({date:S.attDate,classes,updatedAt:Date.now()}),"Attendance saved for "+S.attClass);
+    if(ok){S.attDirty=false;S.repData=null;const absent=list.filter(s=>S.attDraft[s.id]==="A");if(absent.length)showAbsentees(absent);}
+  };
+  if(unmarked) ask(`${unmarked} student(s) are not marked. Save anyway?`,"Save anyway",doSave); else doSave();
+}
+function showAbsentees(list){
+  modal(`<h3>Absent today (${list.length})</h3><p class="muted">Tap WhatsApp to inform parents.</p>
+   <table>${list.map(s=>{
+     const msg=`Dear parent, ${s.name} (${s.cls}) was absent today (${niceDate(S.attDate)}) at ${S.settings.academyName}.`;
+     return `<tr><td>${esc(s.name)}</td><td>${esc(s.phone)}</td><td class="right">${waOf(s)?`<a class="wa" target="_blank" rel="noopener" href="https://wa.me/${phoneForWa(waOf(s))}?text=${encodeURIComponent(msg)}">WhatsApp</a>`:'<span class="muted">no phone</span>'}</td></tr>`;}).join("")}</table>
+   <div class="row" style="margin-top:14px"><button onclick="closeModal()">Done</button></div>`);
+}
+
+// ----- fees -----
+function receiptNo(){return "SSA-"+Date.now().toString(36).toUpperCase().slice(-6);}
+VIEWS.fees=()=>{
+  const m=S.feeMonth;
+  const list=sortStu(byClass(active(),S.feeClass));
+  let totalDue=0,totalPaid=0;
+  const rows=list.map(s=>{
+    const fee=Number(s.monthlyFee||0), paid=paidFor(s.id,m), bal=Math.max(0,fee-paid);
+    totalDue+=bal; totalPaid+=paid;
+    const st=fee===0?'<span class="pill grey">No fee</span>':bal===0?'<span class="pill ok">Paid</span>':paid>0?'<span class="pill warn">Partial</span>':'<span class="pill bad">Due</span>';
+    const msg=`Dear parent, the fee of ${money(bal)} for ${s.name} (${s.cls}) for ${monthName(m)} is due at ${S.settings.academyName}. Kindly pay at your earliest. Thank you.`;
+    return `<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b><div class="muted" style="font-size:12px">${esc(s.cls)}</div></td><td class="right">${esc(money(fee))}</td><td class="right">${esc(money(paid))}</td><td class="right">${esc(money(bal))}</td><td>${st}</td>
+      <td class="right" style="white-space:nowrap">${bal>0?`<button class="sm ok" onclick="openPay('${s.id}')">Collect</button>`:`<button class="sm ghost" onclick="openPay('${s.id}')">Add</button>`}
+      ${bal>0&&waOf(s)?` <a class="wa sm" target="_blank" rel="noopener" href="https://wa.me/${phoneForWa(waOf(s))}?text=${encodeURIComponent(msg)}" title="Send reminder">📲</a>`:""}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>💰 Fees</h2>
+    <div class="row" style="margin-bottom:12px">
+      <div><label>Month</label><input type="month" value="${m}" onchange="S.feeMonth=this.value||thisMonth();render()"></div>
+      <div><label>Class</label><select onchange="S.feeClass=this.value;render()">${classOptions(S.feeClass,true)}</select></div>
+    </div>
+    <div class="grid" style="margin-bottom:12px">
+      <div class="stat"><div class="l">Collected for ${esc(monthName(m))}</div><div class="n" style="color:var(--ok)">${esc(money(totalPaid))}</div></div>
+      <div class="stat"><div class="l">Still due</div><div class="n" style="color:var(--bad)">${esc(money(totalDue))}</div></div>
+      <div class="stat"><div class="l">Total fee collection in ${esc(monthName(m))}</div><div class="n">${esc(money(sum(feesReceived(m))))}</div><div class="l">All payments received this month, incl. admission &amp; other fees</div></div>
+    </div>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Roll</th><th>Student</th><th class="right">Fee</th><th class="right">Paid</th><th class="right">Balance</th><th>Status</th><th></th></tr>${rows}</table></div>
+    <p class="muted" style="font-size:13px">📲 = send fee reminder on WhatsApp</p>`:`<div class="empty">No active students.</div>`}
+  </div>
+  <div class="card"><h3>Payments recorded in ${esc(monthName(m))}</h3>${paymentsTable(S.fees.filter(f=>(f.date||"").startsWith(m)))}</div>`;
+};
+function paymentsTable(list){
+  list=[...list].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||0)-(a.createdAt||0));
+  if(!list.length) return `<div class="empty">No payments.</div>`;
+  return `<div class="tablewrap"><table><tr><th>Date</th><th>Receipt</th><th>Student</th><th>For</th><th>Method</th><th class="right">Amount</th><th></th></tr>
+   ${list.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.receiptNo)}</td><td>${esc(f.studentName)}</td><td>${f.type==="admission"?"Admission fee":f.type==="other"?esc(f.note||"Other"):esc(monthName(f.month))}</td><td>${esc(f.method)}</td><td class="right">${esc(money(f.amount))}</td>
+   <td class="right" style="white-space:nowrap"><button class="sm ghost" onclick="showReceipt('${f.id}')">Receipt</button> <button class="sm ghost" onclick="deletePayment('${f.id}')">✕</button></td></tr>`).join("")}</table></div>`;
+}
+function openPay(sid){
+  const s=S.students.find(x=>x.id===sid); if(!s)return;
+  const paid=paidFor(sid,S.feeMonth); const bal=Math.max(0,Number(s.monthlyFee||0)-paid);
+  modal(`<h3>Collect fee — ${esc(s.name)}</h3><p class="muted">${esc(s.cls)} · Monthly fee ${esc(money(s.monthlyFee))}</p>
+   <form class="form" onsubmit="submitPay(event,'${sid}')">
+     <div><label>Fee type</label><select name="type" onchange="this.form.month.parentElement.style.display=this.value==='monthly'?'':'none'"><option value="monthly">Monthly fee</option><option value="admission">Admission fee</option><option value="other">Other (exam, books…)</option></select></div>
+     <div><label>For month</label><input type="month" name="month" value="${S.feeMonth}"></div>
+     <div><label>Amount (${esc(S.settings.currency)}) *</label><input type="number" min="1" name="amount" required value="${bal||""}"></div>
+     <div><label>Date received</label><input type="date" name="date" value="${today()}"></div>
+     <div><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>JazzCash</option><option>Easypaisa</option><option>Other</option></select></div>
+     <div><label>Note</label><input name="note" placeholder="optional"></div>
+     <div style="grid-column:1/-1" class="row"><button type="submit" class="ok">Save payment</button><button type="button" class="ghost shrink" onclick="closeModal()">Cancel</button></div>
+   </form>`);
+}
+async function submitPay(e,sid){
+  e.preventDefault();
+  const s=S.students.find(x=>x.id===sid);
+  const d=Object.fromEntries(new FormData(e.target).entries());
+  e.target.querySelector("button[type=submit]").disabled=true;
+  const ref=S.db.collection("fees").doc();
+  const rec={studentId:sid,studentName:s.name,cls:s.cls,type:d.type,month:d.type==="monthly"?d.month:(d.date||today()).slice(0,7),
+    amount:Number(d.amount),date:d.date||today(),method:d.method,note:d.note.trim(),receiptNo:receiptNo(),createdAt:Date.now()};
+  const ok=await save(()=>ref.set(rec),"Payment saved");
+  if(ok){S.fees=[...S.fees.filter(f=>f.id!==ref.id),{id:ref.id,...rec}];showReceipt(ref.id);}
+  else e.target.querySelector("button[type=submit]").disabled=false;
+}
+function receiptText(f){
+  const s=S.students.find(x=>x.id===f.studentId)||{};
+  return `*${S.settings.academyName}* — Fee Receipt\nReceipt No: ${f.receiptNo}\nDate: ${niceDate(f.date)}\nStudent: ${f.studentName} (${f.cls})\nRoll No: ${s.rollNo||""}\nFor: ${f.type==="admission"?"Admission fee":f.type==="other"?(f.note||"Other"):monthName(f.month)}\nAmount: ${money(f.amount)}\nPaid by: ${f.method}\nThank you!`;
+}
+function showReceipt(fid){
+  const f=S.fees.find(x=>x.id===fid); if(!f)return;
+  const s=S.students.find(x=>x.id===f.studentId)||{};
+  const wa=waOf(s)?`https://wa.me/${phoneForWa(waOf(s))}?text=${encodeURIComponent(receiptText(f))}`:"";
+  modal(`<div class="receipt">
+    <div class="h"><b>${esc(S.settings.academyName)}</b><br><span class="muted">${esc(S.settings.address)} ${S.settings.phone?"· "+esc(S.settings.phone):""}</span><br><b style="font-size:14px">FEE RECEIPT</b></div>
+    <table>
+      <tr><td class="muted">Receipt No.</td><td class="right">${esc(f.receiptNo)}</td></tr>
+      <tr><td class="muted">Date</td><td class="right">${esc(niceDate(f.date))}</td></tr>
+      <tr><td class="muted">Student</td><td class="right">${esc(f.studentName)}</td></tr>
+      <tr><td class="muted">Father</td><td class="right">${esc(s.father)}</td></tr>
+      <tr><td class="muted">Class / Roll</td><td class="right">${esc(f.cls)} / ${esc(s.rollNo)}</td></tr>
+      <tr><td class="muted">For</td><td class="right">${f.type==="admission"?"Admission fee":f.type==="other"?esc(f.note||"Other"):esc(monthName(f.month))}</td></tr>
+      <tr><td class="muted">Payment method</td><td class="right">${esc(f.method)}</td></tr>
+      <tr><td><b>Amount received</b></td><td class="right"><b>${esc(money(f.amount))}</b></td></tr>
+    </table></div>
+    <div class="row" style="margin-top:14px">
+      ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="flex:1"><button style="width:100%" class="ok">📲 Send on WhatsApp</button></a>`:""}
+      <button class="ghost" onclick="copyText(receiptText(S.fees.find(x=>x.id==='${fid}')))">📋 Copy</button>
+      <button class="ghost shrink" onclick="closeModal()">Close</button>
+    </div>`);
+}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Copied");}catch(e){toast("Could not copy");}}
+function deletePayment(fid){
+  const f=S.fees.find(x=>x.id===fid);
+  ask(`Delete this payment of ${money(f.amount)} from ${f.studentName}?`,"Delete payment",()=>save(()=>S.db.doc("fees/"+fid).delete(),"Payment deleted"));
+}
+
+// ----- reports -----
+VIEWS.reports=()=>{
+  const m=S.repMonth;
+  const income=S.fees.filter(f=>(f.date||"").startsWith(m));
+  const total=income.reduce((a,f)=>a+Number(f.amount||0),0);
+  const byMethod={}; income.forEach(f=>byMethod[f.method]=(byMethod[f.method]||0)+Number(f.amount||0));
+  const defaulters=sortStu(byClass(active(),S.repClass)).filter(s=>Number(s.monthlyFee||0)>paidFor(s.id,m));
+  let att="";
+  if(!S.repData||S.repData.key!==m) att=`<div class="empty">Loading attendance…</div>`;
+  else{
+    const days=S.repData.docs;
+    const list=sortStu(byClass(active(),S.repClass));
+    att=list.length?`<p class="muted">${days.length} day(s) of attendance recorded in ${esc(monthName(m))}</p><div class="tablewrap"><table><tr><th>Name</th><th>Class</th><th class="right">Present</th><th class="right">Absent</th><th class="right">Leave</th><th style="width:28%">Attendance %</th></tr>
+     ${list.map(s=>{let P=0,A=0,L=0;days.forEach(d=>{const k=d.classes&&d.classes[s.cls]&&d.classes[s.cls][s.id];if(k==="P")P++;else if(k==="A")A++;else if(k==="L")L++;});
+       const tot=P+A+L,pct=tot?Math.round(P/tot*100):0;
+       return `<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td class="right">${P}</td><td class="right">${A}</td><td class="right">${L}</td><td>${tot?`<div class="bar"><i style="width:${pct}%;background:${pct<75?"var(--bad)":"var(--ok)"}"></i></div><span style="font-size:12px">${pct}%</span>`:'<span class="muted">—</span>'}</td></tr>`;}).join("")}</table></div>`:`<div class="empty">No students.</div>`;
+  }
+  return `<div class="card"><h2>📊 Reports</h2>
+    <div class="row"><div><label>Month</label><input type="month" value="${m}" onchange="S.repMonth=this.value||thisMonth();render()"></div>
+    <div><label>Class</label><select onchange="S.repClass=this.value;render()">${classOptions(S.repClass,true)}</select></div>
+    <button class="ghost shrink" onclick="exportFees()">⬇️ Download fee records</button></div></div>
+  <div class="card"><h3>📒 Monthly account — ${esc(monthName(m))}</h3>${accountCard(m)}</div>
+  <div class="card"><h3>📅 Year ${m.slice(0,4)} — month by month</h3>${yearTable(m.slice(0,4))}</div>
+  <div class="card"><h3>Fee payments received in ${esc(monthName(m))}: ${esc(money(total))}</h3>
+    ${Object.keys(byMethod).length?`<p>${Object.entries(byMethod).map(([k,v])=>`${esc(k)}: <b>${esc(money(v))}</b>`).join(" · ")}</p>`:""}
+    ${paymentsTable(income)}</div>
+  <div class="card"><h3>Fee defaulters — ${esc(monthName(m))} (${defaulters.length})</h3>
+    ${defaulters.length?`<div class="tablewrap"><table><tr><th>Name</th><th>Class</th><th>Phone</th><th class="right">Balance</th></tr>${defaulters.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td>${esc(s.phone)}</td><td class="right">${esc(money(Number(s.monthlyFee)-paidFor(s.id,m)))}</td></tr>`).join("")}</table></div>`:`<div class="empty">Everyone has paid 🎉</div>`}</div>
+  <div class="card"><h3>Attendance summary — ${esc(monthName(m))}</h3>${att}</div>`;
+};
+VIEWS.reports_after=()=>{
+  const m=S.repMonth;
+  if(S.repData&&S.repData.key===m||S.repLoading===m) return;
+  S.repLoading=m;
+  S.db.collection("attendance").where("date",">=",m+"-01").where("date","<=",m+"-31").get()
+    .then(q=>{S.repData={key:m,docs:q.docs.map(d=>d.data())};S.repLoading=null;if(view()==="reports")render();})
+    .catch(()=>{S.repData={key:m,docs:[]};S.repLoading=null;if(view()==="reports")render();});
+};
+
+// ----- expenses -----
+const EXP_CATS=["Rent","Teacher salary","Peon salary","Utility bills","Other"];
+const EXP_ICON={"Rent":"🏢","Teacher salary":"👩‍🏫","Peon salary":"🧹","Utility bills":"💡","Other":"📦"};
+function sum(list){return list.reduce((a,x)=>a+Number(x.amount||0),0);}
+function feesReceived(m){return S.fees.filter(f=>(f.date||"").startsWith(m));}
+function expensesFor(m){return S.expenses.filter(x=>x.month===m);}
+function monthAccount(m){
+  const fees=feesReceived(m), exps=expensesFor(m);
+  const income={monthly:sum(fees.filter(f=>f.type!=="admission"&&f.type!=="other")),admission:sum(fees.filter(f=>f.type==="admission")),other:sum(fees.filter(f=>f.type==="other"))};
+  income.total=income.monthly+income.admission+income.other;
+  const byCat={}; EXP_CATS.forEach(c=>byCat[c]=0); exps.forEach(x=>byCat[x.category]=(byCat[x.category]||0)+Number(x.amount||0));
+  const expTotal=sum(exps);
+  return {income,byCat,expTotal,profit:income.total-expTotal,feeCount:fees.length,expCount:exps.length};
+}
+function accountCard(m){
+  const a=monthAccount(m);
+  const line=(l,v,st="")=>`<tr><td>${l}</td><td class="right" style="${st}">${esc(money(v))}</td></tr>`;
+  return `<div class="grid" style="margin-bottom:12px">
+    <div class="stat"><div class="l">Total fee collection</div><div class="n" style="color:var(--ok)">${esc(money(a.income.total))}</div><div class="l">${a.feeCount} payment(s) received</div></div>
+    <div class="stat"><div class="l">Total expenses</div><div class="n" style="color:var(--bad)">${esc(money(a.expTotal))}</div><div class="l">${a.expCount} expense(s)</div></div>
+    <div class="stat"><div class="l">${a.profit>=0?"Profit (saving)":"Loss"}</div><div class="n" style="color:${a.profit>=0?"var(--ok)":"var(--bad)"}">${esc(money(Math.abs(a.profit)))}</div><div class="l">Fees minus expenses</div></div>
+  </div>
+  <div class="grid">
+    <div><h3>Money in 💰</h3><table>${line("Monthly fees",a.income.monthly)}${line("Admission fees",a.income.admission)}${line("Other fees (exam, books…)",a.income.other)}${line("<b>Total</b>",a.income.total,"font-weight:800")}</table></div>
+    <div><h3>Money out 🧾</h3><table>${Object.entries(a.byCat).map(([c,v])=>line((EXP_ICON[c]||"📦")+" "+esc(c),v)).join("")}${line("<b>Total</b>",a.expTotal,"font-weight:800")}</table></div>
+  </div>`;
+}
+
+VIEWS.expenses=()=>{
+  const m=S.expMonth;
+  const list=[...expensesFor(m)].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||0)-(a.createdAt||0));
+  const payees=[...new Set(S.expenses.map(x=>x.payee).filter(Boolean))];
+  return `<div class="card"><h2>🧾 Expenses</h2>
+    <div class="row"><div><label>Month</label><input type="month" value="${m}" onchange="S.expMonth=this.value||thisMonth();render()"></div>
+    <button class="ghost shrink" onclick="repeatLastMonth()">🔁 Copy last month's rent &amp; salaries</button>
+    <button class="ghost shrink" onclick="exportExpenses()">⬇️ Download expenses</button></div></div>
+  <div class="card"><h3>Add an expense for ${esc(monthName(m))}</h3>
+    <form class="form" id="expForm" onsubmit="submitExpense(event)">
+      <div><label>Type *</label><select name="category" required>${EXP_CATS.map(c=>`<option>${c}</option>`).join("")}</select></div>
+      <div><label>Paid to (teacher / peon / landlord)</label><input name="payee" list="payees" placeholder="e.g. Sir Ahmed"><datalist id="payees">${payees.map(p=>`<option value="${esc(p)}">`).join("")}</datalist></div>
+      <div><label>Amount (${esc(S.settings.currency)}) *</label><input type="number" min="1" name="amount" required></div>
+      <div><label>Date paid</label><input type="date" name="date" value="${today()}"></div>
+      <div><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>JazzCash</option><option>Easypaisa</option><option>Other</option></select></div>
+      <div><label>Note</label><input name="note" placeholder="optional, e.g. electricity bill"></div>
+      <div style="grid-column:1/-1"><button type="submit">💾 Save expense</button></div>
+    </form></div>
+  <div class="card"><h3>Expenses for ${esc(monthName(m))} — ${esc(money(sum(list)))}</h3>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Date</th><th>Type</th><th>Paid to</th><th>Method</th><th>Note</th><th class="right">Amount</th><th></th></tr>
+    ${list.map(x=>`<tr><td>${esc(niceDate(x.date))}</td><td>${EXP_ICON[x.category]||"📦"} ${esc(x.category)}</td><td>${esc(x.payee)}</td><td>${esc(x.method)}</td><td>${esc(x.note)}</td><td class="right">${esc(money(x.amount))}</td>
+      <td class="right"><button class="sm ghost" onclick="deleteExpense('${x.id}')">✕</button></td></tr>`).join("")}</table></div>`:`<div class="empty">No expenses added for this month yet.</div>`}
+  </div>
+  <div class="card"><h3>📒 ${esc(monthName(m))} account</h3>${accountCard(m)}</div>`;
+};
+async function submitExpense(e){
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target).entries());
+  const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
+  const rec={category:d.category,payee:d.payee.trim(),amount:Number(d.amount),date:d.date||today(),month:S.expMonth,method:d.method,note:d.note.trim(),createdAt:Date.now()};
+  const ok=await save(()=>S.db.collection("expenses").doc().set(rec),"Expense saved");
+  btn.disabled=false;
+  if(ok){e.target.reset();S.dirty=false;softRender();}
+}
+function deleteExpense(id){
+  const x=S.expenses.find(e=>e.id===id);
+  ask(`Delete ${x.category}${x.payee?" ("+x.payee+")":""} of ${money(x.amount)}?`,"Delete",()=>save(()=>S.db.doc("expenses/"+id).delete(),"Expense deleted"));
+}
+function prevMonth(m){const [y,mo]=m.split("-").map(Number);const d=new Date(y,mo-2,1);return d.getFullYear()+"-"+p2(d.getMonth()+1);}
+function repeatLastMonth(){
+  const m=S.expMonth, pm=prevMonth(m);
+  const already=expensesFor(m);
+  const items=expensesFor(pm).filter(x=>["Rent","Teacher salary","Peon salary"].includes(x.category))
+    .filter(x=>!already.some(y=>y.category===x.category&&(y.payee||"")===(x.payee||"")));
+  if(!items.length){modal(`<h3>Nothing to copy</h3><p class="muted">No rent or salaries found in ${esc(monthName(pm))} that aren't already added to ${esc(monthName(m))}.</p><div class="row"><button onclick="closeModal()">OK</button></div>`);return;}
+  modal(`<h3>Add these to ${esc(monthName(m))}?</h3><p class="muted">Copied from ${esc(monthName(pm))}. You can delete any of them later.</p>
+    <table>${items.map(x=>`<tr><td>${EXP_ICON[x.category]} ${esc(x.category)}</td><td>${esc(x.payee)}</td><td class="right">${esc(money(x.amount))}</td></tr>`).join("")}
+    <tr><td colspan="2"><b>Total</b></td><td class="right"><b>${esc(money(sum(items)))}</b></td></tr></table>
+    <div class="row" style="margin-top:14px"><button class="ghost" onclick="closeModal()">Cancel</button><button class="ok" id="doCopy">Add ${items.length} expense(s)</button></div>`);
+  $("doCopy").onclick=async()=>{
+    $("doCopy").disabled=true;
+    for(const x of items){
+      const ok=await save(()=>S.db.collection("expenses").doc().set({category:x.category,payee:x.payee||"",amount:Number(x.amount),date:today(),month:m,method:x.method||"Cash",note:x.note||"",createdAt:Date.now()}));
+      if(!ok)break;
+    }
+    closeModal();toast("Expenses added");
+  };
+}
+function exportExpenses(){
+  const rows=[["Date paid","For month","Type","Paid to","Amount","Method","Note"]];
+  [...S.expenses].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>rows.push([x.date,x.month,x.category,x.payee,x.amount,x.method,x.note]));
+  download("expenses.csv",csv(rows));
+}
+
+function yearTable(y){
+  let T={i:0,e:0};
+  const rows=Array.from({length:12},(_,i)=>{const m=y+"-"+p2(i+1);const a=monthAccount(m);T.i+=a.income.total;T.e+=a.expTotal;
+    if(!a.income.total&&!a.expTotal)return "";
+    return `<tr><td>${esc(monthName(m))}</td><td class="right">${esc(money(a.income.total))}</td><td class="right">${esc(money(a.expTotal))}</td><td class="right" style="color:${a.profit>=0?"var(--ok)":"var(--bad)"};font-weight:700">${a.profit<0?"−":""}${esc(money(Math.abs(a.profit)))}</td></tr>`;}).join("");
+  if(!rows)return `<div class="empty">No records for ${y} yet.</div>`;
+  const P=T.i-T.e;
+  return `<div class="tablewrap"><table><tr><th>Month</th><th class="right">Fees collected</th><th class="right">Expenses</th><th class="right">Profit / Loss</th></tr>${rows}
+   <tr><td><b>Total</b></td><td class="right"><b>${esc(money(T.i))}</b></td><td class="right"><b>${esc(money(T.e))}</b></td><td class="right" style="color:${P>=0?"var(--ok)":"var(--bad)"}"><b>${P<0?"−":""}${esc(money(Math.abs(P)))}</b></td></tr></table></div>`;
+}
+
+// ----- downloads (CSV, opens in Excel) -----
+function csv(rows){return rows.map(r=>r.map(v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(",")).join("\n");}
+async function download(name,text,type){
+  const data=(type?"":"\ufeff")+text;
+  if(S.local){
+    const url=URL.createObjectURL(new Blob([data],{type:(type||"text/csv")+";charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);toast("Downloaded "+name);return;
+  }
+  if(!S.dl){copyText(text);toast("Download not available here — copied to clipboard instead");return;}
+  try{await S.dl.save({filename:name,data});}catch(e){}
+}
+function exportStudents(){
+  const rows=[["Roll No","Name","Father","Class","Phone (parent)","Student WhatsApp","Gender","Date of birth","Admission date","Monthly fee","Status","Address","Notes"]];
+  sortStu(S.students).forEach(s=>rows.push([s.rollNo,s.name,s.father,s.cls,s.phone,s.whatsapp,s.gender,s.dob,s.admissionDate,s.monthlyFee,s.status==="left"?"Left":"Active",s.address,s.notes]));
+  download("students.csv",csv(rows));
+}
+function exportFees(){
+  const rows=[["Date","Receipt No","Student","Class","Type","For month","Amount","Method","Note"]];
+  [...S.fees].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(f=>rows.push([f.date,f.receiptNo,f.studentName,f.cls,f.type,f.month,f.amount,f.method,f.note]));
+  download("fee-records.csv",csv(rows));
+}
+
+// ----- setup -----
+VIEWS.setup=()=>`<div class="card"><h2>⚙️ Setup</h2>
+  <form class="form" onsubmit="saveSetup(event)">
+    <div><label>Academy name</label><input name="academyName" value="${esc(S.settings.academyName)}"></div>
+    <div><label>Phone</label><input name="phone" value="${esc(S.settings.phone)}"></div>
+    <div><label>Currency symbol</label><input name="currency" value="${esc(S.settings.currency)}"></div>
+    <div style="grid-column:1/-1"><label>Address (shown on receipts)</label><input name="address" value="${esc(S.settings.address)}"></div>
+    <div style="grid-column:1/-1"><label>Classes / batches — one per line</label><textarea name="classes" style="min-height:180px">${esc(S.settings.classes.join("\n"))}</textarea>
+      <div class="muted" style="font-size:13px;margin-top:4px">Example: Class 9, Matric, FSc Pre-Medical, English Language Course, Morning Batch…</div></div>
+    <div style="grid-column:1/-1"><button type="submit">Save setup</button></div>
+  </form></div>
+  <div class="card"><h3>Your data</h3><p class="muted">To download or back up your data, go to <a href="#backup">💾 Backup</a>.</p></div>`;
+async function saveSetup(e){
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(e.target).entries());
+  const classes=[...new Set(d.classes.split("\n").map(x=>x.trim()).filter(Boolean))];
+  await save(()=>S.db.doc("settings/main").set({academyName:d.academyName.trim()||"Smart Step Academy",phone:d.phone.trim(),currency:d.currency.trim()||"Rs.",address:d.address.trim(),classes}),"Setup saved");
+}
+
+// ---------- local (offline) storage: used when the app is opened as a file on your computer ----------
+function makeLocalDB(){
+  const KEY="smart-step-academy-data";
+  let store={};
+  try{store=JSON.parse(localStorage.getItem(KEY)||"{}");}catch(e){}
+  const subs=new Set();
+  const segs=p=>p.split("/");
+  const meta={fromCache:false,hasPendingWrites:false};
+  const snapDoc=p=>({id:segs(p).pop(),exists:p in store,data:()=>store[p],metadata:meta});
+  const persist=()=>{
+    try{localStorage.setItem(KEY,JSON.stringify(store));}
+    catch(e){throw {code:"quota_exceeded",message:"Browser storage is full"};}
+    setTimeout(()=>subs.forEach(f=>f()),0);
+  };
+  const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  const docRef=p=>({id:segs(p).pop(),path:p,
+    get:async()=>snapDoc(p),
+    set:async d=>{const old=store[p];store[p]=JSON.parse(JSON.stringify(d));try{persist();}catch(e){if(old===undefined)delete store[p];else store[p]=old;throw e;}},
+    update:async d=>{if(!(p in store))throw {code:"invalid_argument"};const old=store[p];store[p]={...old,...JSON.parse(JSON.stringify(d))};try{persist();}catch(e){store[p]=old;throw e;}},
+    delete:async()=>{delete store[p];persist();},
+    onSnapshot(next){const f=()=>next(snapDoc(p));subs.add(f);setTimeout(f,0);return ()=>subs.delete(f);},
+    collection:c=>coll(p+"/"+c)});
+  const ops={"==":(a,b)=>a==b,"!=":(a,b)=>a!=b,"<":(a,b)=>a<b,"<=":(a,b)=>a<=b,">":(a,b)=>a>b,">=":(a,b)=>a>=b};
+  const coll=(cp,filters=[])=>{
+    const run=()=>{const n=segs(cp).length+1;
+      const docs=Object.keys(store).filter(k=>k.startsWith(cp+"/")&&segs(k).length===n).sort().map(snapDoc)
+        .filter(d=>filters.every(([f,o,v])=>(ops[o]||(()=>true))(d.data()[f],v)));
+      return {docs,size:docs.length,empty:!docs.length,metadata:meta,docChanges:()=>[]};};
+    return {path:cp,doc:id=>docRef(cp+"/"+(id||newId())),
+      add:async d=>{const r=docRef(cp+"/"+newId());await r.set(d);return r;},
+      where:(f,o,v)=>coll(cp,[...filters,[f,o,v]]),orderBy:()=>coll(cp,filters),limit:()=>coll(cp,filters),
+      get:async()=>run(),
+      onSnapshot(next){const f=()=>next(run());subs.add(f);setTimeout(f,0);return ()=>subs.delete(f);}};
+  };
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
+  return {doc:docRef,collection:c=>coll(c)};
+}
+
+// ---------- backup & export ----------
+const BACKUP_COLLS=["settings","students","fees","expenses","attendance"];
+async function buildBackup(){
+  const data={};
+  for(const c of BACKUP_COLLS){const q=await S.db.collection(c).get();q.docs.forEach(d=>data[c+"/"+d.id]=d.data());}
+  return {app:"smart-step-academy",version:1,exportedAt:new Date().toISOString(),data};
+}
+async function exportBackup(){
+  try{
+    toast("Preparing backup…");
+    const b=await buildBackup();
+    await download("smart-step-backup-"+today()+".json",JSON.stringify(b,null,1),"application/json");
+  }catch(e){toast("Could not make the backup. Check internet and try again.");}
+}
+async function exportAttendance(){
+  const q=await S.db.collection("attendance").get();
+  const names={};S.students.forEach(s=>names[s.id]=s);
+  const rows=[["Date","Class","Roll No","Student","Status"]];
+  q.docs.map(d=>d.data()).sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(d=>
+    Object.entries(d.classes||{}).forEach(([cls,marks])=>Object.entries(marks||{}).forEach(([sid,k])=>{
+      const s=names[sid]||{};rows.push([d.date,cls,s.rollNo,s.name||"(deleted student)",{P:"Present",A:"Absent",L:"Leave"}[k]||k]);})));
+  download("attendance.csv",csv(rows));
+}
+function restoreBackup(input){
+  const file=input.files&&input.files[0]; input.value="";
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let b;try{b=JSON.parse(r.result);}catch(e){}
+    if(!b||b.app!=="smart-step-academy"||!b.data||typeof b.data!=="object"){modal(`<h3>Not a backup file</h3><p class="muted">Please choose a backup file made by this app (it starts with "smart-step-backup").</p><div class="row"><button onclick="closeModal()">OK</button></div>`);return;}
+    const entries=Object.entries(b.data).filter(([p,d])=>{const s=p.split("/");return s.length===2&&BACKUP_COLLS.includes(s[0])&&/^[A-Za-z0-9_\-.~:@+]+$/.test(s[1])&&d&&typeof d==="object"&&!Array.isArray(d);});
+    const count=c=>entries.filter(([p])=>p.startsWith(c+"/")).length;
+    modal(`<h3>Restore this backup?</h3><p class="muted">Made on ${esc(new Date(b.exportedAt).toLocaleString())}</p>
+      <table><tr><td>Students</td><td class="right">${count("students")}</td></tr><tr><td>Fee payments</td><td class="right">${count("fees")}</td></tr>
+      <tr><td>Expenses</td><td class="right">${count("expenses")}</td></tr><tr><td>Attendance days</td><td class="right">${count("attendance")}</td></tr></table>
+      <p class="muted" style="font-size:13px">Records from the backup are added to this app. Records already here with the same entry are replaced by the backup copy; nothing else is deleted. Restoring the same file twice does not create duplicates.</p>
+      <div id="restoreMsg" class="muted"></div>
+      <div class="row" style="margin-top:12px"><button class="ghost" onclick="closeModal()" id="restoreCancel">Cancel</button><button class="ok" id="restoreGo">Restore</button></div>`);
+    $("restoreGo").onclick=async()=>{
+      $("restoreGo").disabled=true;$("restoreCancel").disabled=true;
+      let i=0;
+      for(const [p,d] of entries){
+        const ok=await save(()=>S.db.doc(p).set(d));
+        if(!ok){$("restoreMsg").textContent=`Stopped after ${i} of ${entries.length} records. You can try again — nothing will be duplicated.`;$("restoreCancel").disabled=false;return;}
+        if(++i%10===0)$("restoreMsg").textContent=`Restoring… ${i} of ${entries.length}`;
+      }
+      S.repData=null;S.attKey=null;closeModal();toast(`Restored ${entries.length} records`);render();
+    };
+  };
+  r.readAsText(file);
+}
+
+VIEWS.backup=()=>`<div class="card"><h2>💾 Backup &amp; Export</h2>
+  ${S.local?`<div class="banner">You are using the <b>offline version</b> on this computer. Your data is saved in this browser only. Take a backup often (e.g. every week) and keep it on a USB or in Google Drive / WhatsApp, so nothing is lost if the computer has a problem.</div>`
+           :`<p class="muted">Your data is saved online automatically. Only you (and anyone you add as an Editor from the Share button) can see or change it.</p>`}
+  <h3>Full backup (all data in one file)</h3>
+  <p class="muted">Saves students, attendance, fees, expenses and setup in one file. Use it to keep a safe copy, or to move your data between the online and offline versions of the app.</p>
+  <div class="row" style="margin-bottom:18px">
+    <button class="shrink" onclick="exportBackup()">⬇️ Download full backup</button>
+    <label class="shrink" style="margin:0"><span class="ghost" style="display:inline-block;padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-weight:700;cursor:pointer;font-size:15px">⬆️ Restore from backup</span><input type="file" accept=".json,application/json" style="display:none" onchange="restoreBackup(this)"></label>
+  </div>
+  <h3>Export to Excel</h3>
+  <p class="muted">These files open in Excel or Google Sheets.</p>
+  <div class="row">
+    <button class="ghost shrink" onclick="exportStudents()">👨‍🎓 Students</button>
+    <button class="ghost shrink" onclick="exportAttendance()">✅ Attendance</button>
+    <button class="ghost shrink" onclick="exportFees()">💰 Fee payments</button>
+    <button class="ghost shrink" onclick="exportExpenses()">🧾 Expenses</button>
+  </div></div>`;
+
+// ---------- boot ----------
+render();
+(async()=>{
+  let db=null;
+  if(location.protocol==="file:"||!window.claude){ db=makeLocalDB(); S.local=true; }
+  else{
+    try{ db = await window.claude.use("db"); }catch(e){}
+    try{ S.dl = await window.claude.use("downloads"); }catch(e){}
+  }
+  S.dbChecked=true;
+  if(!db){render();return;}
+  S.db=db;
+  const timer=setTimeout(()=>{S.offline=true;render();},10000);
+  const done=(k,snap)=>{S.ready[k]=true;if(!snap.metadata.fromCache&&Object.values(S.ready).every(Boolean)){clearTimeout(timer);S.offline=false;}};
+  const fail=e=>{clearTimeout(timer);S.error=e&&e.code==="revoked"?"Access to this app's data has ended.":"Could not load your data. Please refresh the page later.";render();};
+  db.doc("settings/main").onSnapshot(snap=>{if(snap.exists){S.settings={...S.settings,...snap.data()};if(JSON.stringify(S.settings.classes)===JSON.stringify(["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10"]))S.settings.classes=["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Class 9","Class 10","Class 11","Class 12"];}done("settings",snap);softRender();},fail);
+  db.collection("students").onSnapshot(q=>{S.students=q.docs.map(d=>({id:d.id,...d.data()}));done("students",q);softRender();},fail);
+  db.collection("fees").onSnapshot(q=>{S.fees=q.docs.map(d=>({id:d.id,...d.data()}));done("fees",q);softRender();},fail);
+  db.collection("expenses").onSnapshot(q=>{S.expenses=q.docs.map(d=>({id:d.id,...d.data()}));done("expenses",q);softRender();},fail);
+})();
+</script>
+</body>
+</html>
