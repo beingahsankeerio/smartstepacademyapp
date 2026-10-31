@@ -126,7 +126,29 @@ function sortStu(list){return [...list].sort((a,b)=>(a.cls||"").localeCompare(b.
 function classOptions(sel, withAll){
   return (withAll?`<option value="">All classes</option>`:"")+S.settings.classes.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
 }
-function paidFor(sid, month){return S.fees.filter(f=>f.studentId===sid&&f.month===month&&f.type!=="admission").reduce((a,f)=>a+Number(f.amount||0),0);}
+// Tuition paid by a student for one fee period (a month like "2026-10", or "Y2026" annual, or "H2026-1" half-year)
+function paidFor(sid, key){return S.fees.filter(f=>f.studentId===sid&&f.type!=="admission"&&f.type!=="other"&&(f.period||f.month)===key).reduce((a,f)=>a+Number(f.amount||0),0);}
+const PLAN_LABEL={monthly:"Monthly",other:"Other (fixed amount)",annual:"Annual",half:"Half-yearly"};
+function mn(k){return new Date(2000,((k-1)%12+12)%12,1).toLocaleString(undefined,{month:"short"});}
+function sessInfo(m){
+  const start=Number(S.settings.sessionStart||4); const [y,mo]=m.split("-").map(Number);
+  const sy=mo>=start?y:y-1, off=(mo-start+12)%12;
+  return {sy,off,start,label:start===1?String(sy):sy+"–"+String(sy+1).slice(2)};
+}
+// Which fee period the month m falls in for this student, and how much is due for it
+function periodFor(s,m){
+  const plan=s.feePlan||"monthly";
+  if(plan==="monthly") return {key:m,label:monthName(m),due:Number(s.monthlyFee||0)};
+  if(plan==="other") return {key:"T",label:"Fixed fee",due:Number(s.fixedFee||0)};
+  const {sy,off,start,label}=sessInfo(m), annual=Number(s.annualFee||0);
+  if(plan==="annual") return {key:"Y"+sy,label:`Annual fee ${label} (${mn(start)}–${mn(start+11)})`,due:annual};
+  const h=off<6?1:2, from=start+(h-1)*6;
+  return {key:`H${sy}-${h}`,label:`${h===1?"1st":"2nd"} half ${label} (${mn(from)}–${mn(from+5)})`,due:Math.round(annual/2)};
+}
+function dueFor(s,m){const p=periodFor(s,m),paid=paidFor(s.id,p.key);return {p,paid,bal:Math.max(0,p.due-paid)};}
+function feeForLabel(f){return f.type==="admission"?"Admission fee":f.type==="other"?(f.note||"Other"):(f.periodLabel||monthName(f.month));}
+function feeText(s){const plan=s.feePlan||"monthly";
+  return plan==="monthly"?money(s.monthlyFee)+" / month":plan==="other"?money(s.fixedFee)+" (fixed amount)":plan==="annual"?money(s.annualFee)+" / year":money(Math.round(Number(s.annualFee||0)/2))+" × 2 (half-yearly)";}
 async function save(fn, okMsg){
   try{await fn(); if(okMsg)toast(okMsg); return true;}
   catch(e){
@@ -169,8 +191,8 @@ const VIEWS={};
 VIEWS.home=()=>{
   const act=active(); const m=thisMonth();
   const collected=S.fees.filter(f=>(f.date||"").startsWith(m)).reduce((a,f)=>a+Number(f.amount||0),0);
-  const dueList=act.filter(s=>Number(s.monthlyFee||0)>paidFor(s.id,m));
-  const due=dueList.reduce((a,s)=>a+Number(s.monthlyFee||0)-paidFor(s.id,m),0);
+  const dueList=act.filter(s=>dueFor(s,m).bal>0);
+  const due=dueList.reduce((a,s)=>a+dueFor(s,m).bal,0);
   const newAdm=S.students.filter(s=>(s.admissionDate||"").startsWith(m)).length;
   const recent=[...S.fees].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,6);
   return `
@@ -193,7 +215,7 @@ VIEWS.home=()=>{
   ${act.length===0?`<div class="card"><h3>👋 Welcome!</h3><p>Start in 2 steps:</p><ol><li>Go to <a href="#setup">⚙️ Setup</a> and check your class names and academy details.</li><li>Go to <a href="#admission">➕ New Admission</a> and add your students.</li></ol><p class="muted">After that you can take attendance and collect fees every day.</p></div>`:""}
   <div class="card"><h3>Recent fee payments</h3>
     ${recent.length?`<div class="tablewrap"><table><tr><th>Date</th><th>Student</th><th>For</th><th class="right">Amount</th></tr>
-    ${recent.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.studentName)}</td><td>${f.type==="admission"?"Admission fee":esc(monthName(f.month))}</td><td class="right">${esc(money(f.amount))}</td></tr>`).join("")}</table></div>`:`<div class="empty">No payments yet.</div>`}
+    ${recent.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.studentName)}</td><td>${esc(feeForLabel(f))}</td><td class="right">${esc(money(f.amount))}</td></tr>`).join("")}</table></div>`:`<div class="empty">No payments yet.</div>`}
   </div>`;
 };
 
@@ -211,7 +233,10 @@ function studentForm(s){
     <div><label>Gender</label><select name="gender">${["","Male","Female"].map(g=>`<option ${g===(s.gender||"")?"selected":""}>${g}</option>`).join("")}</select></div>
     <div><label>Date of birth</label><input type="date" name="dob" value="${esc(s.dob)}"></div>
     <div><label>Admission date</label><input type="date" name="admissionDate" value="${esc(s.admissionDate||today())}"></div>
-    <div><label>Monthly fee (${esc(S.settings.currency)})</label><input type="number" min="0" name="monthlyFee" value="${esc(s.monthlyFee??"")}"></div>
+    <div><label>Fee plan</label><select name="feePlan" onchange="feePlanToggle(this)">${["monthly","other",...(["annual","half"].includes(s.feePlan)?[s.feePlan]:[])].map(k=>`<option value="${k}" ${(s.feePlan||"monthly")===k?"selected":""}>${PLAN_LABEL[k]}</option>`).join("")}</select></div>
+    <div id="fpMonthly" style="${(s.feePlan||"monthly")==="monthly"?"":"display:none"}"><label>Monthly fee (${esc(S.settings.currency)})</label><input type="number" min="0" name="monthlyFee" value="${esc(s.monthlyFee??"")}"></div>
+    <div id="fpOther" style="${s.feePlan==="other"?"":"display:none"}"><label>Fee amount — what this student pays (${esc(S.settings.currency)})</label><input type="number" min="0" name="fixedFee" placeholder="e.g. 5000 or 10000" value="${esc(s.fixedFee??"")}"></div>
+    <div id="fpAnnual" style="${["annual","half"].includes(s.feePlan)?"":"display:none"}"><label>Annual fee — full year (${esc(S.settings.currency)})</label><input type="number" min="0" name="annualFee" value="${esc(s.annualFee??"")}"></div>
     ${s.id?`<div><label>Status</label><select name="status"><option value="active" ${s.status!=="left"?"selected":""}>Active</option><option value="left" ${s.status==="left"?"selected":""}>Left academy</option></select></div>`
           :`<div><label>Admission fee received now (${esc(S.settings.currency)})</label><input type="number" min="0" name="admFee" placeholder="0"></div>`}
     <div style="grid-column:1/-1"><label>Address</label><input name="address" value="${esc(s.address)}"></div>
@@ -225,12 +250,19 @@ VIEWS.admission=()=>{
   return `<div class="card"><h2>➕ New Admission</h2>${studentForm()}</div>`;
 };
 
+function feePlanToggle(sel){
+  const f=sel.form, plan=sel.value;
+  f.querySelector("#fpMonthly").style.display=plan==="monthly"?"":"none";
+  f.querySelector("#fpOther").style.display=plan==="other"?"":"none";
+  f.querySelector("#fpAnnual").style.display=["annual","half"].includes(plan)?"":"none";
+}
+function payHint(sid,el){const s=S.students.find(x=>x.id===sid);if(s&&el.value)$("payHint").textContent="Counts as: "+periodFor(s,el.value).label;}
 async function submitStudent(e){
   e.preventDefault();
   const f=new FormData(e.target); const d=Object.fromEntries(f.entries());
   const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
   const rec={rollNo:d.rollNo.trim(),name:d.name.trim(),father:d.father.trim(),cls:d.cls,phone:d.phone.trim(),whatsapp:d.whatsapp.trim(),gender:d.gender,dob:d.dob,
-    admissionDate:d.admissionDate,monthlyFee:Number(d.monthlyFee||0),address:d.address.trim(),notes:d.notes.trim()};
+    admissionDate:d.admissionDate,feePlan:d.feePlan||"monthly",monthlyFee:Number(d.monthlyFee||0),annualFee:Number(d.annualFee||0),fixedFee:Number(d.fixedFee||0),address:d.address.trim(),notes:d.notes.trim()};
   if(S.editId){
     rec.status=d.status;
     const ok=await save(()=>S.db.doc("students/"+S.editId).update(rec),"Student updated");
@@ -265,9 +297,9 @@ VIEWS.students=()=>{
       <button class="ghost shrink" onclick="exportStudents()">⬇️ Download list</button>
     </div>
     <p class="muted">${list.length} student(s)</p>
-    ${list.length?`<div class="tablewrap"><table><tr><th>Roll</th><th>Name</th><th>Father</th><th>Class</th><th>Phone / WhatsApp</th><th class="right">Monthly fee</th><th></th></tr>
+    ${list.length?`<div class="tablewrap"><table><tr><th>Roll</th><th>Name</th><th>Father</th><th>Class</th><th>Phone / WhatsApp</th><th class="right">Fee</th><th></th></tr>
     ${list.map(s=>`<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b>${s.status==="left"?' <span class="pill grey">Left</span>':""}</td><td>${esc(s.father)}</td><td>${esc(s.cls)}</td>
-      <td>${esc(s.phone)}${s.whatsapp?`<div style="font-size:12px"><a class="wa" href="https://wa.me/${phoneForWa(s.whatsapp)}" target="_blank" rel="noopener">WA ${esc(s.whatsapp)}</a></div>`:""}</td><td class="right">${esc(money(s.monthlyFee))}</td>
+      <td>${esc(s.phone)}${s.whatsapp?`<div style="font-size:12px"><a class="wa" href="https://wa.me/${phoneForWa(s.whatsapp)}" target="_blank" rel="noopener">WA ${esc(s.whatsapp)}</a></div>`:""}</td><td class="right">${esc(feeText(s))}</td>
       <td class="right" style="white-space:nowrap"><button class="sm ghost" onclick="showStudent('${s.id}')">View</button> <button class="sm ghost" onclick="editStudent('${s.id}')">Edit</button></td></tr>`).join("")}
     </table></div>`:`<div class="empty">No students found. <a href="#admission">Add a new admission</a>.</div>`}
   </div>`;
@@ -292,12 +324,12 @@ function showStudent(id){
       <tr><td class="muted">Student WhatsApp</td><td>${s.whatsapp?`${esc(s.whatsapp)} · <a class="wa" href="https://wa.me/${phoneForWa(s.whatsapp)}" target="_blank" rel="noopener">Open chat</a>`:'<span class="muted">—</span>'}</td></tr>
       <tr><td class="muted">Date of birth</td><td>${esc(niceDate(s.dob))}</td></tr>
       <tr><td class="muted">Admission date</td><td>${esc(niceDate(s.admissionDate))}</td></tr>
-      <tr><td class="muted">Monthly fee</td><td>${esc(money(s.monthlyFee))}</td></tr>
+      <tr><td class="muted">Fee plan</td><td>${esc(PLAN_LABEL[s.feePlan||"monthly"])} · ${esc(feeText(s))}</td></tr>
       <tr><td class="muted">Address</td><td>${esc(s.address)}</td></tr>
       ${s.notes?`<tr><td class="muted">Notes</td><td>${esc(s.notes)}</td></tr>`:""}
     </table>
     <h3 style="margin-top:16px">Fee history (total ${esc(money(total))})</h3>
-    ${pays.length?`<table>${pays.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${f.type==="admission"?"Admission":esc(monthName(f.month))}</td><td class="right">${esc(money(f.amount))}</td><td class="right"><button class="sm ghost" onclick="showReceipt('${f.id}')">Receipt</button></td></tr>`).join("")}</table>`:`<p class="muted">No payments yet.</p>`}
+    ${pays.length?`<table>${pays.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(feeForLabel(f))}</td><td class="right">${esc(money(f.amount))}</td><td class="right"><button class="sm ghost" onclick="showReceipt('${f.id}')">Receipt</button></td></tr>`).join("")}</table>`:`<p class="muted">No payments yet.</p>`}
     <div class="row" style="margin-top:16px">
       <button onclick="closeModal();S.feeStudent='${s.id}';go('fees');setTimeout(()=>openPay('${s.id}'),50)">💰 Collect fee</button>
       <button class="ghost" onclick="editStudent('${s.id}')">Edit</button>
@@ -383,11 +415,11 @@ VIEWS.fees=()=>{
   const list=sortStu(byClass(active(),S.feeClass));
   let totalDue=0,totalPaid=0;
   const rows=list.map(s=>{
-    const fee=Number(s.monthlyFee||0), paid=paidFor(s.id,m), bal=Math.max(0,fee-paid);
+    const {p,paid,bal}=dueFor(s,m), fee=p.due;
     totalDue+=bal; totalPaid+=paid;
     const st=fee===0?'<span class="pill grey">No fee</span>':bal===0?'<span class="pill ok">Paid</span>':paid>0?'<span class="pill warn">Partial</span>':'<span class="pill bad">Due</span>';
-    const msg=`Dear parent, the fee of ${money(bal)} for ${s.name} (${s.cls}) for ${monthName(m)} is due at ${S.settings.academyName}. Kindly pay at your earliest. Thank you.`;
-    return `<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b><div class="muted" style="font-size:12px">${esc(s.cls)}</div></td><td class="right">${esc(money(fee))}</td><td class="right">${esc(money(paid))}</td><td class="right">${esc(money(bal))}</td><td>${st}</td>
+    const msg=`Dear parent, the fee of ${money(bal)} for ${s.name} (${s.cls}) for ${p.label} is due at ${S.settings.academyName}. Kindly pay at your earliest. Thank you.`;
+    return `<tr><td>${esc(s.rollNo)}</td><td><b>${esc(s.name)}</b><div class="muted" style="font-size:12px">${esc(s.cls)} · ${esc(PLAN_LABEL[s.feePlan||"monthly"])}</div></td><td class="right">${esc(money(fee))}${(s.feePlan||"monthly")!=="monthly"?`<div class="muted" style="font-size:12px">${esc(p.label)}</div>`:""}</td><td class="right">${esc(money(paid))}</td><td class="right">${esc(money(bal))}</td><td>${st}</td>
       <td class="right" style="white-space:nowrap">${bal>0?`<button class="sm ok" onclick="openPay('${s.id}')">Collect</button>`:`<button class="sm ghost" onclick="openPay('${s.id}')">Add</button>`}
       ${bal>0&&waOf(s)?` <a class="wa sm" target="_blank" rel="noopener" href="https://wa.me/${phoneForWa(waOf(s))}?text=${encodeURIComponent(msg)}" title="Send reminder">📲</a>`:""}</td></tr>`;
   }).join("");
@@ -397,7 +429,7 @@ VIEWS.fees=()=>{
       <div><label>Class</label><select onchange="S.feeClass=this.value;render()">${classOptions(S.feeClass,true)}</select></div>
     </div>
     <div class="grid" style="margin-bottom:12px">
-      <div class="stat"><div class="l">Collected for ${esc(monthName(m))}</div><div class="n" style="color:var(--ok)">${esc(money(totalPaid))}</div></div>
+      <div class="stat"><div class="l">Paid against the fees below</div><div class="n" style="color:var(--ok)">${esc(money(totalPaid))}</div></div>
       <div class="stat"><div class="l">Still due</div><div class="n" style="color:var(--bad)">${esc(money(totalDue))}</div></div>
       <div class="stat"><div class="l">Total fee collection in ${esc(monthName(m))}</div><div class="n">${esc(money(sum(feesReceived(m))))}</div><div class="l">All payments received this month, incl. admission &amp; other fees</div></div>
     </div>
@@ -410,16 +442,16 @@ function paymentsTable(list){
   list=[...list].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||0)-(a.createdAt||0));
   if(!list.length) return `<div class="empty">No payments.</div>`;
   return `<div class="tablewrap"><table><tr><th>Date</th><th>Receipt</th><th>Student</th><th>For</th><th>Method</th><th class="right">Amount</th><th></th></tr>
-   ${list.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.receiptNo)}</td><td>${esc(f.studentName)}</td><td>${f.type==="admission"?"Admission fee":f.type==="other"?esc(f.note||"Other"):esc(monthName(f.month))}</td><td>${esc(f.method)}</td><td class="right">${esc(money(f.amount))}</td>
+   ${list.map(f=>`<tr><td>${esc(niceDate(f.date))}</td><td>${esc(f.receiptNo)}</td><td>${esc(f.studentName)}</td><td>${esc(feeForLabel(f))}</td><td>${esc(f.method)}</td><td class="right">${esc(money(f.amount))}</td>
    <td class="right" style="white-space:nowrap"><button class="sm ghost" onclick="showReceipt('${f.id}')">Receipt</button> <button class="sm ghost" onclick="deletePayment('${f.id}')">✕</button></td></tr>`).join("")}</table></div>`;
 }
 function openPay(sid){
   const s=S.students.find(x=>x.id===sid); if(!s)return;
-  const paid=paidFor(sid,S.feeMonth); const bal=Math.max(0,Number(s.monthlyFee||0)-paid);
-  modal(`<h3>Collect fee — ${esc(s.name)}</h3><p class="muted">${esc(s.cls)} · Monthly fee ${esc(money(s.monthlyFee))}</p>
+  const {bal}=dueFor(s,S.feeMonth);
+  modal(`<h3>Collect fee — ${esc(s.name)}</h3><p class="muted">${esc(s.cls)} · ${esc(PLAN_LABEL[s.feePlan||"monthly"])} plan · ${esc(feeText(s))}</p>
    <form class="form" onsubmit="submitPay(event,'${sid}')">
-     <div><label>Fee type</label><select name="type" onchange="this.form.month.parentElement.style.display=this.value==='monthly'?'':'none'"><option value="monthly">Monthly fee</option><option value="admission">Admission fee</option><option value="other">Other (exam, books…)</option></select></div>
-     <div><label>For month</label><input type="month" name="month" value="${S.feeMonth}"></div>
+     <div><label>Fee type</label><select name="type" onchange="this.form.month.parentElement.style.display=this.value==='monthly'?'':'none'"><option value="monthly">Tuition fee</option><option value="admission">Admission fee</option><option value="other">Other (exam, books…)</option></select></div>
+     <div><label>For month</label><input type="month" name="month" value="${S.feeMonth}" oninput="payHint('${sid}',this)"><div class="muted" id="payHint" style="font-size:12px;margin-top:4px">Counts as: ${esc(periodFor(s,S.feeMonth).label)}</div></div>
      <div><label>Amount (${esc(S.settings.currency)}) *</label><input type="number" min="1" name="amount" required value="${bal||""}"></div>
      <div><label>Date received</label><input type="date" name="date" value="${today()}"></div>
      <div><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>JazzCash</option><option>Easypaisa</option><option>Other</option></select></div>
@@ -433,7 +465,9 @@ async function submitPay(e,sid){
   const d=Object.fromEntries(new FormData(e.target).entries());
   e.target.querySelector("button[type=submit]").disabled=true;
   const ref=S.db.collection("fees").doc();
-  const rec={studentId:sid,studentName:s.name,cls:s.cls,type:d.type,month:d.type==="monthly"?d.month:(d.date||today()).slice(0,7),
+  const per=d.type==="monthly"?periodFor(s,d.month||S.feeMonth):null;
+  const rec={studentId:sid,studentName:s.name,cls:s.cls,type:d.type,month:d.type==="monthly"?(d.month||S.feeMonth):(d.date||today()).slice(0,7),
+    ...(per?{period:per.key,periodLabel:per.label,plan:s.feePlan||"monthly"}:{}),
     amount:Number(d.amount),date:d.date||today(),method:d.method,note:d.note.trim(),receiptNo:receiptNo(),createdAt:Date.now()};
   const ok=await save(()=>ref.set(rec),"Payment saved");
   if(ok){S.fees=[...S.fees.filter(f=>f.id!==ref.id),{id:ref.id,...rec}];showReceipt(ref.id);}
@@ -441,7 +475,7 @@ async function submitPay(e,sid){
 }
 function receiptText(f){
   const s=S.students.find(x=>x.id===f.studentId)||{};
-  return `*${S.settings.academyName}* — Fee Receipt\nReceipt No: ${f.receiptNo}\nDate: ${niceDate(f.date)}\nStudent: ${f.studentName} (${f.cls})\nRoll No: ${s.rollNo||""}\nFor: ${f.type==="admission"?"Admission fee":f.type==="other"?(f.note||"Other"):monthName(f.month)}\nAmount: ${money(f.amount)}\nPaid by: ${f.method}\nThank you!`;
+  return `*${S.settings.academyName}* — Fee Receipt\nReceipt No: ${f.receiptNo}\nDate: ${niceDate(f.date)}\nStudent: ${f.studentName} (${f.cls})\nRoll No: ${s.rollNo||""}\nFor: ${feeForLabel(f)}\nAmount: ${money(f.amount)}\nPaid by: ${f.method}\nThank you!`;
 }
 function showReceipt(fid){
   const f=S.fees.find(x=>x.id===fid); if(!f)return;
@@ -455,7 +489,7 @@ function showReceipt(fid){
       <tr><td class="muted">Student</td><td class="right">${esc(f.studentName)}</td></tr>
       <tr><td class="muted">Father</td><td class="right">${esc(s.father)}</td></tr>
       <tr><td class="muted">Class / Roll</td><td class="right">${esc(f.cls)} / ${esc(s.rollNo)}</td></tr>
-      <tr><td class="muted">For</td><td class="right">${f.type==="admission"?"Admission fee":f.type==="other"?esc(f.note||"Other"):esc(monthName(f.month))}</td></tr>
+      <tr><td class="muted">For</td><td class="right">${esc(feeForLabel(f))}</td></tr>
       <tr><td class="muted">Payment method</td><td class="right">${esc(f.method)}</td></tr>
       <tr><td><b>Amount received</b></td><td class="right"><b>${esc(money(f.amount))}</b></td></tr>
     </table></div>
@@ -477,7 +511,7 @@ VIEWS.reports=()=>{
   const income=S.fees.filter(f=>(f.date||"").startsWith(m));
   const total=income.reduce((a,f)=>a+Number(f.amount||0),0);
   const byMethod={}; income.forEach(f=>byMethod[f.method]=(byMethod[f.method]||0)+Number(f.amount||0));
-  const defaulters=sortStu(byClass(active(),S.repClass)).filter(s=>Number(s.monthlyFee||0)>paidFor(s.id,m));
+  const defaulters=sortStu(byClass(active(),S.repClass)).filter(s=>dueFor(s,m).bal>0);
   let att="";
   if(!S.repData||S.repData.key!==m) att=`<div class="empty">Loading attendance…</div>`;
   else{
@@ -498,7 +532,7 @@ VIEWS.reports=()=>{
     ${Object.keys(byMethod).length?`<p>${Object.entries(byMethod).map(([k,v])=>`${esc(k)}: <b>${esc(money(v))}</b>`).join(" · ")}</p>`:""}
     ${paymentsTable(income)}</div>
   <div class="card"><h3>Fee defaulters — ${esc(monthName(m))} (${defaulters.length})</h3>
-    ${defaulters.length?`<div class="tablewrap"><table><tr><th>Name</th><th>Class</th><th>Phone</th><th class="right">Balance</th></tr>${defaulters.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td>${esc(s.phone)}</td><td class="right">${esc(money(Number(s.monthlyFee)-paidFor(s.id,m)))}</td></tr>`).join("")}</table></div>`:`<div class="empty">Everyone has paid 🎉</div>`}</div>
+    ${defaulters.length?`<div class="tablewrap"><table><tr><th>Name</th><th>Class</th><th>Phone</th><th>For</th><th class="right">Balance</th></tr>${defaulters.map(s=>{const x=dueFor(s,m);return `<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td>${esc(s.phone)}</td><td>${esc(x.p.label)}</td><td class="right">${esc(money(x.bal))}</td></tr>`;}).join("")}</table></div>`:`<div class="empty">Everyone has paid 🎉</div>`}</div>
   <div class="card"><h3>Attendance summary — ${esc(monthName(m))}</h3>${att}</div>`;
 };
 VIEWS.reports_after=()=>{
@@ -533,7 +567,7 @@ function accountCard(m){
     <div class="stat"><div class="l">${a.profit>=0?"Profit (saving)":"Loss"}</div><div class="n" style="color:${a.profit>=0?"var(--ok)":"var(--bad)"}">${esc(money(Math.abs(a.profit)))}</div><div class="l">Fees minus expenses</div></div>
   </div>
   <div class="grid">
-    <div><h3>Money in 💰</h3><table>${line("Monthly fees",a.income.monthly)}${line("Admission fees",a.income.admission)}${line("Other fees (exam, books…)",a.income.other)}${line("<b>Total</b>",a.income.total,"font-weight:800")}</table></div>
+    <div><h3>Money in 💰</h3><table>${line("Tuition fees",a.income.monthly)}${line("Admission fees",a.income.admission)}${line("Other fees (exam, books…)",a.income.other)}${line("<b>Total</b>",a.income.total,"font-weight:800")}</table></div>
     <div><h3>Money out 🧾</h3><table>${Object.entries(a.byCat).map(([c,v])=>line((EXP_ICON[c]||"📦")+" "+esc(c),v)).join("")}${line("<b>Total</b>",a.expTotal,"font-weight:800")}</table></div>
   </div>`;
 }
@@ -626,8 +660,8 @@ async function download(name,text,type){
   try{await S.dl.save({filename:name,data});}catch(e){}
 }
 function exportStudents(){
-  const rows=[["Roll No","Name","Father","Class","Phone (parent)","Student WhatsApp","Gender","Date of birth","Admission date","Monthly fee","Status","Address","Notes"]];
-  sortStu(S.students).forEach(s=>rows.push([s.rollNo,s.name,s.father,s.cls,s.phone,s.whatsapp,s.gender,s.dob,s.admissionDate,s.monthlyFee,s.status==="left"?"Left":"Active",s.address,s.notes]));
+  const rows=[["Roll No","Name","Father","Class","Phone (parent)","Student WhatsApp","Gender","Date of birth","Admission date","Fee plan","Monthly fee","Fixed fee","Status","Address","Notes"]];
+  sortStu(S.students).forEach(s=>rows.push([s.rollNo,s.name,s.father,s.cls,s.phone,s.whatsapp,s.gender,s.dob,s.admissionDate,PLAN_LABEL[s.feePlan||"monthly"],s.monthlyFee,s.fixedFee,s.status==="left"?"Left":"Active",s.address,s.notes]));
   download("students.csv",csv(rows));
 }
 function exportFees(){
@@ -642,6 +676,7 @@ VIEWS.setup=()=>`<div class="card"><h2>⚙️ Setup</h2>
     <div><label>Academy name</label><input name="academyName" value="${esc(S.settings.academyName)}"></div>
     <div><label>Phone</label><input name="phone" value="${esc(S.settings.phone)}"></div>
     <div><label>Currency symbol</label><input name="currency" value="${esc(S.settings.currency)}"></div>
+${S.students.some(x=>["annual","half"].includes(x.feePlan))?`    <div><label>Academic year starts in</label><select name="sessionStart">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${Number(S.settings.sessionStart||4)===i+1?"selected":""}>${new Date(2000,i,1).toLocaleString(undefined,{month:"long"})}</option>`).join("")}</select><div class="muted" style="font-size:12px;margin-top:4px">Used for annual and half-yearly fees</div></div>`:""}
     <div style="grid-column:1/-1"><label>Address (shown on receipts)</label><input name="address" value="${esc(S.settings.address)}"></div>
     <div style="grid-column:1/-1"><label>Classes / batches — one per line</label><textarea name="classes" style="min-height:180px">${esc(S.settings.classes.join("\n"))}</textarea>
       <div class="muted" style="font-size:13px;margin-top:4px">Example: Class 9, Matric, FSc Pre-Medical, English Language Course, Morning Batch…</div></div>
@@ -652,7 +687,7 @@ async function saveSetup(e){
   e.preventDefault();
   const d=Object.fromEntries(new FormData(e.target).entries());
   const classes=[...new Set(d.classes.split("\n").map(x=>x.trim()).filter(Boolean))];
-  await save(()=>S.db.doc("settings/main").set({academyName:d.academyName.trim()||"Smart Step Academy",phone:d.phone.trim(),currency:d.currency.trim()||"Rs.",address:d.address.trim(),classes}),"Setup saved");
+  await save(()=>S.db.doc("settings/main").set({academyName:d.academyName.trim()||"Smart Step Academy",phone:d.phone.trim(),currency:d.currency.trim()||"Rs.",address:d.address.trim(),sessionStart:Number(d.sessionStart||S.settings.sessionStart||4),classes}),"Setup saved");
 }
 
 // ---------- local (offline) storage: used when the app is opened as a file on your computer ----------
